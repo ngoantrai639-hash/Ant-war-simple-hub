@@ -416,4 +416,6 @@ VisualTab:CreateToggle({
     CurrentValue = false,
     Flag = "MonitorToggle",
     Callback = function(Value)
-        _G.Moni
+      _G.MonitorEnabled = Value
+    end
+})
