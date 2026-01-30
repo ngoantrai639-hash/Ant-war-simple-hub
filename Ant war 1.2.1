@@ -77,7 +77,7 @@ local TargetGui, T_Name, T_HP, DigFrame, DigTitle, DigStatus
 local MonitorFrame, MonitorLabel 
 
 ----------------------------------------------------------------
--- NEW: ACID AURA HELPER FUNCTIONS
+--1. NEW: ACID AURA HELPER FUNCTIONS
 ----------------------------------------------------------------
 local function isBehindWall(targetPart)
     if not _G.AcidWallCheck then return false end
@@ -127,7 +127,7 @@ local function getClosestAcidTarget()
 end
 
 ----------------------------------------------------------------
--- 1. SETUP HUD
+-- 2. SETUP HUD
 ----------------------------------------------------------------
 local function SetupHUDs()
     local playerGui = LP:WaitForChild("PlayerGui")
@@ -178,7 +178,7 @@ end
 SetupHUDs()
 
 ----------------------------------------------------------------
--- NEW: ACID ANIMATION MONITORING
+--3. NEW: ACID ANIMATION MONITORING
 ----------------------------------------------------------------
 local function connectAcidLogic(char)
     local hum = char:WaitForChild("Humanoid")
@@ -202,7 +202,7 @@ end)
 if LP.Character then connectAcidLogic(LP.Character) end
 
 ----------------------------------------------------------------
--- 2. MONITOR LOGIC
+-- 4. MONITOR LOGIC
 ----------------------------------------------------------------
 local function isMyTeamQueen(model)
     if not model:IsA("Model") or model.Name ~= "Queen" then return false end
@@ -278,7 +278,7 @@ local function UpdateMonitor()
 end
 
 ----------------------------------------------------------------
--- 3. ESP & FARM
+-- 5. ESP & FARM
 ----------------------------------------------------------------
 local function CleanESP()
     for _, player in ipairs(Players:GetPlayers()) do
@@ -369,7 +369,7 @@ local function runFarmCycle()
 end
 
 ----------------------------------------------------------------
--- 4. TARGETING (BITE)
+-- 6. TARGETING
 ----------------------------------------------------------------
 local function GetAuraTarget(hrp)
     local bestTarget = nil
@@ -400,7 +400,7 @@ local function GetAuraTarget(hrp)
 end
 
 ----------------------------------------------------------------
--- 5. MAIN LOOP
+-- 7. MAIN LOOP
 ----------------------------------------------------------------
 RunService.Heartbeat:Connect(function()
     local char = LP.Character
@@ -451,7 +451,7 @@ RunService.Heartbeat:Connect(function()
 end)
 
 ----------------------------------------------------------------
--- 6. UI RAYFIELD
+-- 8. UI RAYFIELD
 ----------------------------------------------------------------
 local Window = Rayfield:CreateWindow({ 
     Name = "Ant War: Simple hub", 
