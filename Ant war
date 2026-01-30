@@ -10,6 +10,7 @@ local ServerEvents = ReplicatedStorage:WaitForChild("ServerEvents")
 local BiteEvent = ServerEvents:WaitForChild("Bite")
 local DigEvent = ServerEvents:WaitForChild("Dig")
 local LarvaeEvent = ServerEvents:WaitForChild("Larvae")
+local AcidEvent = ServerEvents:WaitForChild("Acid") -- Added Acid Event
 
 -- Global States
 _G.AuraEnabled = true
@@ -18,6 +19,14 @@ _G.ShowHUD = true
 _G.ESPEnabled = true
 _G.SpeedBypassEnabled = false 
 _G.TargetWalkSpeed = 16 
+
+-- NEW: Acid Aura States
+_G.AcidAuraEnabled = false
+_G.AcidTeamCheck = true
+_G.AcidWallCheck = true
+_G.AcidDisableAnim = false
+_G.AcidRange = 100
+local ACID_ANIM_ID = "rbxassetid://11157254990"
 
 -- Monitor States 
 _G.MonitorEnabled = false
@@ -66,6 +75,56 @@ local Config = {
 local lastDigTime = 0
 local TargetGui, T_Name, T_HP, DigFrame, DigTitle, DigStatus
 local MonitorFrame, MonitorLabel 
+
+----------------------------------------------------------------
+-- NEW: ACID AURA HELPER FUNCTIONS
+----------------------------------------------------------------
+local function isBehindWall(targetPart)
+    if not _G.AcidWallCheck then return false end
+    local char = LP.Character
+    if not char or not char:FindFirstChild("HumanoidRootPart") then return false end
+    
+    local origin = char.HumanoidRootPart.Position
+    local destination = targetPart.Position
+    local direction = (destination - origin).Unit * (destination - origin).Magnitude
+    
+    local raycastParams = RaycastParams.new()
+    raycastParams.FilterDescendantsInstances = {char, targetPart.Parent}
+    raycastParams.FilterType = Enum.RaycastFilterType.Exclude
+    
+    local raycastResult = workspace:Raycast(origin, direction, raycastParams)
+    return raycastResult ~= nil
+end
+
+local function getClosestAcidTarget()
+    local closestPos = nil
+    local shortestDistance = _G.AcidRange
+    local char = LP.Character
+    if not char or not char:FindFirstChild("HumanoidRootPart") then return nil end
+
+    for _, player in pairs(Players:GetPlayers()) do
+        if player ~= LP and player.Character then
+            local root = player.Character:FindFirstChild("HumanoidRootPart")
+            local hum = player.Character:FindFirstChildOfClass("Humanoid")
+            
+            if root and hum and hum.Health > 0 then
+                local canTarget = true
+                if _G.AcidTeamCheck and player.Team == LP.Team then canTarget = false end
+
+                if canTarget then
+                    local distance = (char.HumanoidRootPart.Position - root.Position).Magnitude
+                    if distance < shortestDistance then
+                        if not isBehindWall(root) then
+                            shortestDistance = distance
+                            closestPos = root.Position
+                        end
+                    end
+                end
+            end
+        end
+    end
+    return closestPos
+end
 
 ----------------------------------------------------------------
 -- 1. SETUP HUD
@@ -117,9 +176,33 @@ local function SetupHUDs()
 end
 
 SetupHUDs()
-LP.CharacterAdded:Connect(function() task.wait(0.5) allyHealthCache = {} end)
+
 ----------------------------------------------------------------
--- 2. MONITOR LOGIC (NEW)
+-- NEW: ACID ANIMATION MONITORING
+----------------------------------------------------------------
+local function connectAcidLogic(char)
+    local hum = char:WaitForChild("Humanoid")
+    local animator = hum:WaitForChild("Animator")
+    animator.AnimationPlayed:Connect(function(track)
+        if track.Animation.AnimationId == ACID_ANIM_ID then
+            if _G.AcidDisableAnim then track:Stop() end
+            if _G.AcidAuraEnabled then
+                local targetPos = getClosestAcidTarget()
+                if targetPos then AcidEvent:InvokeServer(targetPos) end
+            end
+        end
+    end)
+end
+
+LP.CharacterAdded:Connect(function(char) 
+    task.wait(0.5) 
+    allyHealthCache = {} 
+    connectAcidLogic(char) -- Reconnect Acid Logic
+end)
+if LP.Character then connectAcidLogic(LP.Character) end
+
+----------------------------------------------------------------
+-- 2. MONITOR LOGIC
 ----------------------------------------------------------------
 local function isMyTeamQueen(model)
     if not model:IsA("Model") or model.Name ~= "Queen" then return false end
@@ -286,7 +369,7 @@ local function runFarmCycle()
 end
 
 ----------------------------------------------------------------
--- 4. TARGETING
+-- 4. TARGETING (BITE)
 ----------------------------------------------------------------
 local function GetAuraTarget(hrp)
     local bestTarget = nil
@@ -326,7 +409,7 @@ RunService.Heartbeat:Connect(function()
     local hrp = char.HumanoidRootPart
 
     UpdateESP()
-    UpdateMonitor() -- Loop Monitor GUI
+    UpdateMonitor()
 
     if _G.SpeedBypassEnabled then if hum.WalkSpeed ~= _G.TargetWalkSpeed then hum.WalkSpeed = _G.TargetWalkSpeed end end
 
@@ -371,51 +454,4 @@ end)
 -- 6. UI RAYFIELD
 ----------------------------------------------------------------
 local Window = Rayfield:CreateWindow({ 
-    Name = "Ant War: Simple hub", 
-    LoadingTitle = "Ant War Script", 
-    LoadingSubtitle = "V1.2", 
-    ConfigurationSaving = { Enabled = true, FolderName = "AntWarConfigs", FileName = "Main" }, 
-    KeySystem = false 
-})
-
-local MainTab = Window:CreateTab("Auras")
-local FarmTab = Window:CreateTab("Farm")
-local MovementTab = Window:CreateTab("Movement") 
-local VisualTab = Window:CreateTab("Visuals") 
-
--- Main Tab
-MainTab:CreateLabel("Bite aura work when you biting(animation detection)")
-MainTab:CreateToggle({ Name = "Toggle Bite Aura", CurrentValue = true, Flag = "AuraToggle", Callback = function(Value) _G.AuraEnabled = Value end })
-MainTab:CreateSection("Bite Settings")
-MainTab:CreateInput({ Name = "Bite Range", PlaceholderText =_G.BiteRange , Callback = function(Text) _G.BiteRange = tonumber(Text) or 25 end })
-MainTab:CreateInput({ Name = "Bite Speed (Interval)", PlaceholderText =_G.BiteInterval , Callback = function(Text) _G.BiteInterval = tonumber(Text) or 0 end })
-MainTab:CreateSection("Dig Settings")
-MainTab:CreateToggle({ Name = "Toggle Dig Aura", CurrentValue = false, Flag = "DigToggle", Callback = function(Value) _G.DigAuraEnabled = Value end })
-
--- Farm Tab
-FarmTab:CreateLabel("NOTE: Save Home Position before turning on Auto Farm!")
-FarmTab:CreateButton({ Name = "Save Current Position as Home", Callback = function() local char = LP.Character if char and char:FindFirstChild("HumanoidRootPart") then _G.HomePos = char.HumanoidRootPart.CFrame Rayfield:Notify({Title = "Success", Content = "Home Position Saved!", Duration = 3}) end end })
-FarmTab:CreateToggle({ Name = "Auto Collect Larvae", CurrentValue = false, Flag = "AutoFarmFlag", Callback = function(Value) _G.AutoFarm = Value if Value then task.spawn(function() while _G.AutoFarm do pcall(runFarmCycle) task.wait(FARM_WAIT_TIME) end end) end end })
-
--- Movement Tab
-MovementTab:CreateSection("WalkSpeed Bypass")
-MovementTab:CreateToggle({ Name = "Enable Speed Bypass", CurrentValue = false, Flag = "BypassToggle", Callback = function(Value) _G.SpeedBypassEnabled = Value end })
-MovementTab:CreateSlider({ Name = "Walk Speed Amount", Range = {16, 40}, Increment = 1, Suffix = " Speed", CurrentValue = 16, Flag = "SpeedSlider", Callback = function(Value) _G.TargetWalkSpeed = Value end })
-
--- Visual Tab
-VisualTab:CreateSection("ESP Settings")
-VisualTab:CreateToggle({ Name = "Toggle Other Team ESP", CurrentValue = true, Flag = "ESPToggle", Callback = function(Value) _G.ESPEnabled = Value end })
-VisualTab:CreateButton({ Name = "Fix & Refresh ESP", Callback = function() CleanESP() end })
-VisualTab:CreateSection("HUD Settings")
-VisualTab:CreateToggle({ Name = "Show Target Enemy HUD Display", CurrentValue = true, Flag = "HUDToggle", Callback = function(Value) _G.ShowHUD = Value end })
-
--- NEW: Monitor Queen Section inside Visuals
-VisualTab:CreateSection("Queen & Team Monitor")
-VisualTab:CreateToggle({
-    Name = "Monitor queen and ally[Final]",
-    CurrentValue = false,
-    Flag = "MonitorToggle",
-    Callback = function(Value)
-      _G.MonitorEnabled = Value
-    end
-})
+    Name = "Ant War: Simp
