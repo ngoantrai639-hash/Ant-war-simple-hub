@@ -911,7 +911,7 @@ end)
 local Window = Rayfield:CreateWindow({ 
     Name = "Ant War: Simple hub", 
     LoadingTitle = "Ant War Script", 
-    LoadingSubtitle = "V1.2", 
+    LoadingSubtitle = "V1.2.1", 
     ConfigurationSaving = { Enabled = true, FolderName = "AntWarConfigs", FileName = "Main" }, 
     KeySystem = false 
 })
@@ -929,7 +929,7 @@ MainTab:CreateInput({ Name = "Bite Range", PlaceholderText =_G.BiteRange , Callb
 MainTab:CreateInput({ Name = "Bite Speed (Interval)", PlaceholderText =_G.BiteInterval , Callback = function(Text) _G.BiteInterval = tonumber(Text) or 0 end })
 
 -- NEW: Acid Aura Section inside Main Tab
-MainTab:CreateSection("Acid Aura Master")
+MainTab:CreateSection("Acid Setting")
 MainTab:CreateToggle({ 
     Name = "Toggle Acid Aura", 
     CurrentValue = false, 
@@ -956,7 +956,7 @@ MainTab:CreateToggle({
 })
 MainTab:CreateSlider({ 
     Name = "Acid Range", 
-    Range = {10, 500}, 
+    Range = {10, 200}, 
     Increment = 10, 
     Suffix = "Studs", 
     CurrentValue = 100, 
