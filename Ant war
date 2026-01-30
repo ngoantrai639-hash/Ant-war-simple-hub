@@ -10,7 +10,7 @@ local ServerEvents = ReplicatedStorage:WaitForChild("ServerEvents")
 local BiteEvent = ServerEvents:WaitForChild("Bite")
 local DigEvent = ServerEvents:WaitForChild("Dig")
 local LarvaeEvent = ServerEvents:WaitForChild("Larvae")
-local AcidEvent = ServerEvents:WaitForChild("Acid") -- Added Acid Event
+local AcidEvent = ServerEvents:WaitForChild("Acid")
 
 -- Global States
 _G.AuraEnabled = true
@@ -45,7 +45,7 @@ _G.GatherCount = 0
 local FARM_WAIT_TIME = 5
 local SPAM_DURATION = 0.25 
 
--- New Global States for Bite Customization
+-- Global States for Bite Customization
 _G.BiteRange = 25
 _G.BiteInterval = 0 
 local lastBiteTime = 0
