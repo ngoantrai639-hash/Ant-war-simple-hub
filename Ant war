@@ -373,7 +373,7 @@ end)
 local Window = Rayfield:CreateWindow({ 
     Name = "Ant War: Simple hub", 
     LoadingTitle = "Ant War Script", 
-    LoadingSubtitle = "V1.2[Final verson]", 
+    LoadingSubtitle = "V1.2", 
     ConfigurationSaving = { Enabled = true, FolderName = "AntWarConfigs", FileName = "Main" }, 
     KeySystem = false 
 })
@@ -384,7 +384,7 @@ local MovementTab = Window:CreateTab("Movement")
 local VisualTab = Window:CreateTab("Visuals") 
 
 -- Main Tab
-MainTab:CreateLabel("Verson 1.2 may is final verson for ant war simple hub bc i spend so much time for this")
+MainTab:CreateLabel("Bite aura work when you biting(animation detection)")
 MainTab:CreateToggle({ Name = "Toggle Bite Aura", CurrentValue = true, Flag = "AuraToggle", Callback = function(Value) _G.AuraEnabled = Value end })
 MainTab:CreateSection("Bite Settings")
 MainTab:CreateInput({ Name = "Bite Range", PlaceholderText =_G.BiteRange , Callback = function(Text) _G.BiteRange = tonumber(Text) or 25 end })
