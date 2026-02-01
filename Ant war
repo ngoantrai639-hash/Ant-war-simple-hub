@@ -20,6 +20,10 @@ _G.ESPEnabled = true
 _G.SpeedBypassEnabled = false 
 _G.TargetWalkSpeed = 16 
 
+-- Ant color Stales
+local CurrentSelectedColor = "White"
+local RainbowEnabled = false
+
 -- NEW: Acid Aura States
 _G.AcidAuraEnabled = false
 _G.AcidTeamCheck = true
@@ -127,6 +131,83 @@ local function getClosestAcidTarget()
 end
 
 ----------------------------------------------------------------
+--  COLOR FUNCTIONS
+----------------------------------------------------------------
+local RobloxColors = {
+    "Rainbow", "Fire Ant", "Bronze",
+    "Silver", "Gold", "Neon blue", "Diamond",
+    "Bright blue", "Bright green", "Bright red", "Bright yellow", "Bright orange",
+    "Pink", "Magenta", "Hot pink", "Baby pink", "Royal purple", "Really red",
+    "CGA brown", "Brown", "Dirt brown", "Pastel Blue", "Olive",
+    "White", "Black", "Dark stone grey"
+}
+
+local DarkerParts = {
+    "ThoraxBits", "Neck", "Petiole", "Stinger", "Antennae", 
+    "RightMandible", "LeftMandible",
+    "LAntenna1", "LAntenna2", "LAntenna3", 
+    "RAntenna1", "RAntenna2", "RAntenna3"
+}
+
+local ExcludedParts = {"Eyes", "Glisten", "HoneypotStrips", "Liquid"}
+
+local function ApplyColorToParts(color)
+    local char = game.Players.LocalPlayer.Character
+    if not char then return end
+
+    local baseColor = color
+    local darkerColor = baseColor:Lerp(Color3.new(0, 0, 0), 0.35)
+
+    for _, obj in pairs(char:GetDescendants()) do
+        if obj:IsA("BasePart") then
+            local isExcluded = false
+            for _, exName in pairs(ExcludedParts) do
+                if obj.Name == exName then isExcluded = true break end
+            end
+
+            if not isExcluded then
+                local shouldBeDark = false
+                for _, name in pairs(DarkerParts) do
+                    if obj.Name == name then shouldBeDark = true break end
+                end
+                if string.find(string.lower(obj.Name), "leg") then shouldBeDark = true end
+
+                obj.Color = shouldBeDark and darkerColor or baseColor
+            end
+        end
+    end
+end
+
+
+task.spawn(function()
+    while task.wait(0.1) do
+        if RainbowEnabled then
+            local hue = tick() % 5 / 5
+            local color = Color3.fromHSV(hue, 1, 1)
+            ApplyColorToParts(color)
+        end
+    end
+end)
+
+local function ExecuteColorChange()
+    RainbowEnabled = false 
+    
+    if CurrentSelectedColor == "Rainbow" then
+        RainbowEnabled = true
+    else
+        local color3Value
+        if CurrentSelectedColor == "Fire Ant" then
+            color3Value = Color3.fromRGB(255, 69, 0) 
+        elseif CurrentSelectedColor == "Bronze" then
+            color3Value = Color3.fromRGB(176, 141, 87) 
+        else
+            color3Value = BrickColor.new(CurrentSelectedColor).Color
+        end
+        ApplyColorToParts(color3Value)
+    end
+end
+
+----------------------------------------------------------------
 --  SETUP HUD
 ----------------------------------------------------------------
 local function SetupHUDs()
@@ -197,12 +278,12 @@ end
 LP.CharacterAdded:Connect(function(char) 
     task.wait(0.5) 
     allyHealthCache = {} 
-    connectAcidLogic(char) -- Reconnect Acid Logic
+    connectAcidLogic(char) 
 end)
 if LP.Character then connectAcidLogic(LP.Character) end
 
 ----------------------------------------------------------------
--- 2. MONITOR LOGIC
+--  MONITOR LOGIC
 ----------------------------------------------------------------
 local function isMyTeamQueen(model)
     if not model:IsA("Model") or model.Name ~= "Queen" then return false end
@@ -528,6 +609,35 @@ VisualTab:CreateToggle({ Name = "Toggle Other Team ESP", CurrentValue = true, Fl
 VisualTab:CreateButton({ Name = "Fix & Refresh ESP", Callback = function() CleanESP() end })
 VisualTab:CreateSection("HUD Settings")
 VisualTab:CreateToggle({ Name = "Show Target Enemy HUD Display", CurrentValue = true, Flag = "HUDToggle", Callback = function(Value) _G.ShowHUD = Value end })
+
+--Ant Color in VisualTab(new)
+VisualTab:CreateSection("Ant Color Settings")
+
+VisualTab:CreateDropdown({
+   Name = "Select Color",
+   Options = RobloxColors,
+   CurrentOption = {CurrentSelectedColor},
+   MultipleOptions = false,
+   Flag = "ColorDropdown",
+   Callback = function(Option)
+       CurrentSelectedColor = type(Option) == "table" and Option[1] or Option
+   end,
+})
+
+VisualTab:CreateButton({
+   Name = "Apply Color",
+   Callback = function()
+       ExecuteColorChange()
+       Rayfield:Notify({
+          Title = "Success!",
+          Content = "Color set to " .. CurrentSelectedColor,
+          Duration = 3
+       })
+   end,
+})
+
+
+
 
 VisualTab:CreateSection("Queen & Team Monitor")
 VisualTab:CreateToggle({
