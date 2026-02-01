@@ -537,7 +537,7 @@ end)
 local Window = Rayfield:CreateWindow({ 
     Name = "Ant War: Simple hub", 
     LoadingTitle = "Ant War Script", 
-    LoadingSubtitle = "V1.2.1.01[Fixed]", 
+    LoadingSubtitle = "V1.2.2[New Colorize Ant Update]", 
     ConfigurationSaving = { Enabled = true, FolderName = "AntWarConfigs", FileName = "Main" }, 
     KeySystem = false 
 })
@@ -545,7 +545,7 @@ local Window = Rayfield:CreateWindow({
 local MainTab = Window:CreateTab("Auras")
 local FarmTab = Window:CreateTab("Farm")
 local MovementTab = Window:CreateTab("Movement") 
-local VisualTab = Window:CreateTab("Visuals") 
+local VisualTab = Window:CreateTab("Visuals(New)") 
 
 -- Main Tab
 MainTab:CreateLabel("Bite aura work when you biting(animation detection)")
@@ -554,7 +554,7 @@ MainTab:CreateSection("Bite Settings")
 MainTab:CreateInput({ Name = "Bite Range", PlaceholderText =_G.BiteRange , Callback = function(Text) _G.BiteRange = tonumber(Text) or 25 end })
 MainTab:CreateInput({ Name = "Bite Speed (Interval)", PlaceholderText =_G.BiteInterval , Callback = function(Text) _G.BiteInterval = tonumber(Text) or 0 end })
 
--- NEW: Acid Aura Section inside Main Tab
+-- Acid Aura Section inside Main Tab
 MainTab:CreateSection("Acid Settings")
 MainTab:CreateToggle({ 
     Name = "Toggle Acid Aura", 
