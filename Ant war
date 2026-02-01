@@ -232,15 +232,6 @@ local function SetupHUDs()
     T_HP = Instance.new("TextLabel", TFrame)
     T_HP.Size = UDim2.new(1, 0, 0.6, 0); T_HP.Position = UDim2.new(0, 0, 0.4, 0); T_HP.BackgroundTransparency = 1; T_HP.Font = "GothamBold"; T_HP.TextSize = 18
 
-    -- Dig HUD
-    DigFrame = Instance.new("Frame", ScreenGui)
-    DigFrame.Size = UDim2.new(0, 220, 0, 70); DigFrame.Position = UDim2.new(1, -240, 1, -110)
-    DigFrame.BackgroundColor3 = Color3.fromRGB(30, 30, 30); DigFrame.Visible = false; Instance.new("UICorner", DigFrame)
-    DigTitle = Instance.new("TextLabel", DigFrame)
-    DigTitle.Size = UDim2.new(1, -20, 0, 25); DigTitle.Position = UDim2.new(0, 10, 0, 8); DigTitle.BackgroundTransparency = 1; DigTitle.TextColor3 = Color3.new(1, 1, 1); DigTitle.Font = "GothamBold"; DigTitle.Text = "⛏️ DIG STATUS"
-    DigStatus = Instance.new("TextLabel", DigFrame)
-    DigStatus.Size = UDim2.new(1, -20, 0, 30); DigStatus.Position = UDim2.new(0, 10, 0, 33); DigStatus.BackgroundTransparency = 1; DigStatus.TextColor3 = Color3.fromRGB(0, 255, 150); DigStatus.Font = "GothamBold"; DigStatus.Text = "Active"
-
     -- Monitor Frame 
     MonitorFrame = Instance.new("Frame", ScreenGui)
     MonitorFrame.Size = UDim2.new(0, 280, 0, 90)
