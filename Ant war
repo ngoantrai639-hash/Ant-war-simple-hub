@@ -50,7 +50,7 @@ local FARM_WAIT_TIME = 5
 local SPAM_DURATION = 0.25 
 
 -- Global States for Bite Customization
-_G.BiteRange = 25
+_G.BiteRange = 20
 _G.BiteInterval = 0 
 local lastBiteTime = 0
 
@@ -64,7 +64,7 @@ local Config = {
     digInterval = 0.01,
     sizeLimits = {
         ["Minor"] = 6,
-        ["Major"] = 6,
+        ["Major"] = 6,--Shoud I Fix?,No For Save Time
         ["Supermajor"] = 6
     },
     teamColors = {
@@ -135,9 +135,9 @@ end
 ----------------------------------------------------------------
 local RobloxColors = {
     "Rainbow", "Fire Ant", "Bronze",
-    "Silver", "Gold", "Neon blue", "Diamond",
+    "Silver", "Gold", "Neon",
     "Bright blue", "Bright green", "Bright red", "Bright yellow", "Bright orange",
-    "Pink", "Magenta", "Hot pink", "Baby pink", "Royal purple", "Really red",
+    "Pink", "Magenta", "Hot pink", "Royal purple", "Really red",
     "CGA brown", "Brown", "Dirt brown", "Pastel Blue", "Olive",
     "White", "Black", "Dark stone grey"
 }
@@ -154,6 +154,8 @@ local ExcludedParts = {"Eyes", "Glisten", "HoneypotStrips", "Liquid"}
 local function ApplyColorToParts(color)
     local char = game.Players.LocalPlayer.Character
     if not char then return end
+
+    local isNeonColor = string.find(string.lower(CurrentSelectedColor), "neon")
 
     local baseColor = color
     local darkerColor = baseColor:Lerp(Color3.new(0, 0, 0), 0.35)
@@ -173,6 +175,9 @@ local function ApplyColorToParts(color)
                 if string.find(string.lower(obj.Name), "leg") then shouldBeDark = true end
 
                 obj.Color = shouldBeDark and darkerColor or baseColor
+                if isNeonColor then
+                    obj.Material = Enum.Material.Neon
+                    end
             end
         end
     end
@@ -528,7 +533,7 @@ end)
 local Window = Rayfield:CreateWindow({ 
     Name = "Ant War: Simple hub", 
     LoadingTitle = "Ant War Script", 
-    LoadingSubtitle = "V1.2.2[New Colorize Ant Update]", 
+    LoadingSubtitle = "V1.2.2.1[Small fix]", 
     ConfigurationSaving = { Enabled = true, FolderName = "AntWarConfigs", FileName = "Main" }, 
     KeySystem = false 
 })
@@ -536,7 +541,7 @@ local Window = Rayfield:CreateWindow({
 local MainTab = Window:CreateTab("Auras")
 local FarmTab = Window:CreateTab("Farm")
 local MovementTab = Window:CreateTab("Movement") 
-local VisualTab = Window:CreateTab("Visuals(New)") 
+local VisualTab = Window:CreateTab("Visuals") 
 
 -- Main Tab
 MainTab:CreateLabel("Bite aura work when you biting(animation detection)")
@@ -601,7 +606,7 @@ VisualTab:CreateButton({ Name = "Fix & Refresh ESP", Callback = function() Clean
 VisualTab:CreateSection("HUD Settings")
 VisualTab:CreateToggle({ Name = "Show Target Enemy HUD Display", CurrentValue = true, Flag = "HUDToggle", Callback = function(Value) _G.ShowHUD = Value end })
 
---Ant Color in VisualTab(new)
+--Ant Color in VisualTab
 VisualTab:CreateSection("Ant Color Settings")
 
 VisualTab:CreateDropdown({
