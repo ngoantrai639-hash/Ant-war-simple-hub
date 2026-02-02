@@ -20,11 +20,11 @@ _G.ESPEnabled = true
 _G.SpeedBypassEnabled = false 
 _G.TargetWalkSpeed = 16 
 
--- Ant color Stales
+-- Ant Color States
 local CurrentSelectedColor = "White"
 local RainbowEnabled = false
 
--- NEW: Acid Aura States
+-- Acid Aura States
 _G.AcidAuraEnabled = false
 _G.AcidTeamCheck = true
 _G.AcidWallCheck = true
@@ -49,7 +49,7 @@ _G.GatherCount = 0
 local FARM_WAIT_TIME = 5
 local SPAM_DURATION = 0.25 
 
--- Global States for Bite Customization
+-- Bite Customization States
 _G.BiteRange = 20
 _G.BiteInterval = 0 
 local lastBiteTime = 0
@@ -64,7 +64,7 @@ local Config = {
     digInterval = 0.01,
     sizeLimits = {
         ["Minor"] = 6,
-        ["Major"] = 6,--Shoud I Fix?,No For Save Time
+        ["Major"] = 6, 
         ["Supermajor"] = 6
     },
     teamColors = {
@@ -96,7 +96,7 @@ local function isBehindWall(targetPart)
     raycastParams.FilterDescendantsInstances = {char, targetPart.Parent}
     raycastParams.FilterType = Enum.RaycastFilterType.Exclude
     
-    local raycastResult = workspace:Raycast(origin, direction, raycastParams)
+    local raycastResult = workspace:Raycast(origin, direction, raycastParams) 
     return raycastResult ~= nil
 end
 
@@ -109,29 +109,29 @@ local function getClosestAcidTarget()
     for _, player in pairs(Players:GetPlayers()) do
         if player ~= LP and player.Character then
             local root = player.Character:FindFirstChild("HumanoidRootPart")
-            local hum = player.Character:FindFirstChildOfClass("Humanoid")
+            local hum = player.Character:FindFirstChildOfClass("Humanoid") 
             
             if root and hum and hum.Health > 0 then
                 local canTarget = true
                 if _G.AcidTeamCheck and player.Team == LP.Team then canTarget = false end
 
                 if canTarget then
-                    local distance = (char.HumanoidRootPart.Position - root.Position).Magnitude
+                    local distance = (char.HumanoidRootPart.Position - root.Position).Magnitude 
                     if distance < shortestDistance then
                         if not isBehindWall(root) then
-                            shortestDistance = distance
+                            shortestDistance = distance 
                             closestPos = root.Position
                         end
                     end
                 end
-            end
+            end 
         end
     end
     return closestPos
 end
 
 ----------------------------------------------------------------
---  COLOR FUNCTIONS
+--  COLOR & MATERIAL FUNCTIONS
 ----------------------------------------------------------------
 local RobloxColors = {
     "Rainbow", "Fire Ant", "Bronze",
@@ -142,9 +142,17 @@ local RobloxColors = {
     "White", "Black", "Dark stone grey"
 }
 
+-- Material List Generator
+local RobloxMaterials = {}
+for _, mat in ipairs(Enum.Material:GetEnumItems()) do
+    table.insert(RobloxMaterials, mat.Name)
+end
+table.sort(RobloxMaterials)
+local CurrentSelectedMaterial = "Plastic"
+
 local DarkerParts = {
     "ThoraxBits", "Neck", "Petiole", "Stinger", "Antennae", 
-    "RightMandible", "LeftMandible",
+    "RightMandible", "LeftMandible", 
     "LAntenna1", "LAntenna2", "LAntenna3", 
     "RAntenna1", "RAntenna2", "RAntenna3"
 }
@@ -156,9 +164,36 @@ local function ApplyColorToParts(color)
     if not char then return end
 
     local isNeonColor = string.find(string.lower(CurrentSelectedColor), "neon")
-
     local baseColor = color
     local darkerColor = baseColor:Lerp(Color3.new(0, 0, 0), 0.35)
+
+    for _, obj in pairs(char:GetDescendants()) do
+        if obj:IsA("BasePart") then
+            local isExcluded = false
+            for _, exName in pairs(ExcludedParts) do 
+                if obj.Name == exName then isExcluded = true break end
+            end
+
+            if not isExcluded then
+                local shouldBeDark = false
+                for _, name in pairs(DarkerParts) do 
+                    if obj.Name == name then shouldBeDark = true break end
+                end
+                if string.find(string.lower(obj.Name), "leg") then shouldBeDark = true end
+
+                obj.Color = shouldBeDark and darkerColor or baseColor
+                if isNeonColor then 
+                    obj.Material = Enum.Material.Neon
+                end
+            end
+        end
+    end
+end
+
+local function ApplyMaterialToParts(matName)
+    local char = game.Players.LocalPlayer.Character
+    if not char then return end
+    local mat = Enum.Material[matName]
 
     for _, obj in pairs(char:GetDescendants()) do
         if obj:IsA("BasePart") then
@@ -166,28 +201,17 @@ local function ApplyColorToParts(color)
             for _, exName in pairs(ExcludedParts) do
                 if obj.Name == exName then isExcluded = true break end
             end
-
             if not isExcluded then
-                local shouldBeDark = false
-                for _, name in pairs(DarkerParts) do
-                    if obj.Name == name then shouldBeDark = true break end
-                end
-                if string.find(string.lower(obj.Name), "leg") then shouldBeDark = true end
-
-                obj.Color = shouldBeDark and darkerColor or baseColor
-                if isNeonColor then
-                    obj.Material = Enum.Material.Neon
-                    end
+                obj.Material = mat
             end
         end
     end
 end
 
-
 task.spawn(function()
     while task.wait(0.1) do
         if RainbowEnabled then
-            local hue = tick() % 5 / 5
+            local hue = tick() % 5 / 5 
             local color = Color3.fromHSV(hue, 1, 1)
             ApplyColorToParts(color)
         end
@@ -196,11 +220,10 @@ end)
 
 local function ExecuteColorChange()
     RainbowEnabled = false 
-    
     if CurrentSelectedColor == "Rainbow" then
         RainbowEnabled = true
     else
-        local color3Value
+        local color3Value 
         if CurrentSelectedColor == "Fire Ant" then
             color3Value = Color3.fromRGB(255, 69, 0) 
         elseif CurrentSelectedColor == "Bronze" then
@@ -209,7 +232,7 @@ local function ExecuteColorChange()
             color3Value = BrickColor.new(CurrentSelectedColor).Color
         end
         ApplyColorToParts(color3Value)
-    end
+    end 
 end
 
 ----------------------------------------------------------------
@@ -226,7 +249,6 @@ local function SetupHUDs()
     ScreenGui.DisplayOrder = 10 
     ScreenGui.Parent = playerGui
 
-    -- Target HUD
     TargetGui = Instance.new("BillboardGui", ScreenGui)
     TargetGui.Name = "TargetOverhead"; TargetGui.Size = UDim2.new(0, 200, 0, 50)
     TargetGui.StudsOffset = Vector3.new(0, 4, 0); TargetGui.AlwaysOnTop = true; TargetGui.Enabled = false
@@ -237,7 +259,6 @@ local function SetupHUDs()
     T_HP = Instance.new("TextLabel", TFrame)
     T_HP.Size = UDim2.new(1, 0, 0.6, 0); T_HP.Position = UDim2.new(0, 0, 0.4, 0); T_HP.BackgroundTransparency = 1; T_HP.Font = "GothamBold"; T_HP.TextSize = 18
 
-    -- Monitor Frame 
     MonitorFrame = Instance.new("Frame", ScreenGui)
     MonitorFrame.Size = UDim2.new(0, 280, 0, 90)
     MonitorFrame.Position = UDim2.new(0, 15, 0.4, 0)
@@ -265,7 +286,7 @@ local function connectAcidLogic(char)
             if _G.AcidDisableAnim then track:Stop() end
             if _G.AcidAuraEnabled then
                 local targetPos = getClosestAcidTarget()
-                if targetPos then AcidEvent:InvokeServer(targetPos) end
+                if targetPos then AcidEvent:InvokeServer(targetPos) end 
             end
         end
     end)
@@ -284,7 +305,7 @@ if LP.Character then connectAcidLogic(LP.Character) end
 local function isMyTeamQueen(model)
     if not model:IsA("Model") or model.Name ~= "Queen" then return false end
     local teamName = LP.Team and LP.Team.Name or ""
-    if model.Parent and (model.Parent.Name == teamName or model.Parent.Name:find(teamName)) then return true end
+    if model.Parent and (model.Parent.Name == teamName or model.Parent.Name:find(teamName)) then return true end 
     return false
 end
 
@@ -299,7 +320,7 @@ local function UpdateMonitor()
     local myQueen = nil
     for _, obj in pairs(workspace:GetDescendants()) do if isMyTeamQueen(obj) then myQueen = obj break end end
 
-    if myQueen then
+    if myQueen then 
         local qH = myQueen:FindFirstChildOfClass("Humanoid")
         local qR = myQueen.PrimaryPart or myQueen:FindFirstChild("HumanoidRootPart")
         if qH then
@@ -307,22 +328,22 @@ local function UpdateMonitor()
             if qH.Health < lastQueenHealth then _G.QueenAttackTimer = 3 end
             lastQueenHealth = qH.Health
             
-            local color = p > 50 and "0,255,0" or (p > 25 and "255,255,0" or "255,0,0")
+            local color = p > 50 and "0,255,0" or (p > 25 and "255,255,0" or "255,0,0") 
             displayText = displayText .. "👑 Queen HP: <font color='rgb("..color..")'>" .. p .. "%</font>\n"
             
             if _G.QueenAttackTimer > 0 then
-                displayText = displayText .. "⚠️ <font color='rgb(255,0,0)'>QUEEN UNDER ATTACK!</font>\n"
+                displayText = displayText .. "⚠️ <font color='rgb(255,0,0)'>QUEEN UNDER ATTACK!</font>\n" 
                 _G.QueenAttackTimer = _G.QueenAttackTimer - 0.02
             end
         end
         if qR then
             local e = 0
             for _, p in pairs(Players:GetPlayers()) do
-                if p.Team ~= LP.Team and p.Character and p.Character.PrimaryPart then
+                if p.Team ~= LP.Team and p.Character and p.Character.PrimaryPart then 
                     if (p.Character.PrimaryPart.Position - qR.Position).Magnitude <= Config.detectionRadius then e = e + 1 end
                 end
             end
-            if e > 0 then displayText = displayText .. "❗ Enemies near Queen:  <font color='rgb(255,150,0)'>" .. e .. "</font>\n" end
+            if e > 0 then displayText = displayText .. "❗ Enemies near Queen:  <font color='rgb(255,150,0)'>" .. e .. "</font>\n" end 
         end
     end
 
@@ -331,8 +352,8 @@ local function UpdateMonitor()
         if p.Team == LP.Team and p ~= LP and p.Character then
             local h = p.Character:FindFirstChildOfClass("Humanoid")
             if h then 
-                if h.Health <= 0 and (not allyHealthCache[p.UserId] or allyHealthCache[p.UserId] > 0) then
-                    _G.DeathMsg = p.DisplayName .. (math.random(1,2) == 1 and " Got Bite to death " or " Has ben killed!")
+                if h.Health <= 0 and (not allyHealthCache[p.UserId] or allyHealthCache[p.UserId] > 0) then 
+                    _G.DeathMsg = p.DisplayName .. (math.random(1,2) == 1 and " was bitten to death!" or " has been killed!")
                     _G.DeathTimer = 3
                 elseif allyHealthCache[p.UserId] and h.Health < allyHealthCache[p.UserId] and h.Health > 0 then 
                     allyTakingDmg = true 
@@ -344,7 +365,7 @@ local function UpdateMonitor()
 
     if allyTakingDmg then allyAlertTimer = 3 end
     if allyAlertTimer > 0 then
-        displayText = displayText .. "🛡️ <font color='rgb(0,170,255)'>Ally taking damage!</font>\n"
+        displayText = displayText .. "🛡️ <font color='rgb(0,170,255)'>Ally taking damage!</font>\n" 
         allyAlertTimer = allyAlertTimer - 0.02
     end
     if _G.DeathTimer > 0 then
@@ -360,7 +381,7 @@ end
 local function CleanESP()
     for _, player in ipairs(Players:GetPlayers()) do
         if player.Character then
-            local h = player.Character:FindFirstChild("TeamESP")
+            local h = player.Character:FindFirstChild("TeamESP") 
             local b = player.Character:FindFirstChild("FloatingBox")
             if h then h:Destroy() end
             if b then b:Destroy() end
@@ -371,7 +392,7 @@ end
 local function UpdateESP()
     if not _G.ESPEnabled then CleanESP() return end
     for _, player in ipairs(Players:GetPlayers()) do
-        if player ~= LP and player.Team ~= LP.Team and player.Character then
+        if player ~= LP and player.Team ~= LP.Team and player.Character then 
             local char = player.Character
             local teamColor = Config.teamColors[player.Team.Name] or Color3.new(1, 1, 1)
             local highlight = char:FindFirstChild("TeamESP") or Instance.new("Highlight", char)
@@ -393,7 +414,7 @@ local function teleportAndSpamGather(targetLarvae, targetCFrame, duration)
     if character and character:FindFirstChild("HumanoidRootPart") then
         local startTime = tick()
         while tick() - startTime < duration do
-            if not _G.AutoFarm then break end
+            if not _G.AutoFarm then break end 
             character.HumanoidRootPart.CFrame = targetCFrame
             LarvaeEvent:FireServer("Gather", targetLarvae)
             RunService.RenderStepped:Wait()
@@ -404,7 +425,7 @@ end
 local function isPlayerNearby(larvae)
     local larvaePos = larvae:IsA("Model") and larvae:GetModelCFrame().Position or larvae.Position
     for _, player in pairs(Players:GetPlayers()) do
-        if player ~= LP and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then
+        if player ~= LP and player.Character and player.Character:FindFirstChild("HumanoidRootPart") then 
             local dist = (player.Character.HumanoidRootPart.Position - larvaePos).Magnitude
             if dist <= 5 then return true end
         end
@@ -416,7 +437,7 @@ local function runFarmCycle()
     if not _G.HomePos then
         Rayfield:Notify({Title = "Error", Content = "Please Save Home Position first!", Duration = 5})
         _G.AutoFarm = false
-        return
+        return 
     end
     updateCurrentSize()
     local allLarvae = {}
@@ -428,19 +449,19 @@ local function runFarmCycle()
         if character and character:FindFirstChild("HumanoidRootPart") then character.HumanoidRootPart.CFrame = _G.HomePos end
         return
     end
-    for i, larvae in ipairs(allLarvae) do
+    for i, larvae in ipairs(allLarvae) do 
         if not _G.AutoFarm then break end
         if larvae.Parent and not isPlayerNearby(larvae) then
             local targetCFrame = larvae:IsA("Model") and larvae:GetModelCFrame() or larvae.CFrame
             teleportAndSpamGather(larvae, targetCFrame, SPAM_DURATION)
             _G.GatherCount = _G.GatherCount + 1
             if _G.GatherCount >= Config.sizeLimits[_G.CurrentSize] then
-                local character = LP.Character
+                local character = LP.Character 
                 if character and character:FindFirstChild("HumanoidRootPart") then character.HumanoidRootPart.CFrame = _G.HomePos end
                 task.wait(8)
                 _G.GatherCount = 0
                 updateCurrentSize()
-            end
+            end 
         end
     end
 end
@@ -454,7 +475,7 @@ local function GetAuraTarget(hrp)
     for _, p in ipairs(Players:GetPlayers()) do
         if p ~= LP and p.Team ~= LP.Team and p.Character and p.Character:FindFirstChild("Humanoid") and p.Character:FindFirstChild("HumanoidRootPart") then
             local dist = (hrp.Position - p.Character.HumanoidRootPart.Position).Magnitude
-            if dist < minDistance and p.Character.Humanoid.Health > 0 then minDistance = dist bestTarget = {hum = p.Character.Humanoid, part = p.Character.HumanoidRootPart, name = p.Name, char = p.Character} end
+            if dist < minDistance and p.Character.Humanoid.Health > 0 then minDistance = dist bestTarget = {hum = p.Character.Humanoid, part = p.Character.HumanoidRootPart, name = p.Name, char = p.Character} end 
         end
     end
     if not bestTarget then
@@ -462,13 +483,13 @@ local function GetAuraTarget(hrp)
             local chambers = workspace:FindFirstChild("Map") and workspace.Map:FindFirstChild("Chambers")
             if chambers then
                 for _, chamber in ipairs(chambers:GetChildren()) do
-                    if LP.Team and chamber.Name ~= LP.Team.Name then
+                    if LP.Team and chamber.Name ~= LP.Team.Name then 
                         local queen = chamber:FindFirstChild("Queen")
                         if queen and queen:FindFirstChild("Humanoid") and queen:FindFirstChild("HumanoidRootPart") then
-                            local qDist = (hrp.Position - queen.HumanoidRootPart.Position).Magnitude
+                            local qDist = (hrp.Position - queen.HumanoidRootPart.Position).Magnitude 
                             if qDist < _G.BiteRange and queen.Humanoid.Health > 0 then bestTarget = {hum = queen.Humanoid, part = queen.HumanoidRootPart, name = "Queen " .. chamber.Name, char = queen} end
                         end
-                    end
+                    end 
                 end
             end
         end)
@@ -485,7 +506,7 @@ RunService.Heartbeat:Connect(function()
     local hum = char.Humanoid
     local hrp = char.HumanoidRootPart
 
-    UpdateESP()
+    UpdateESP() 
     UpdateMonitor()
 
     if _G.SpeedBypassEnabled then if hum.WalkSpeed ~= _G.TargetWalkSpeed then hum.WalkSpeed = _G.TargetWalkSpeed end end
@@ -496,7 +517,7 @@ RunService.Heartbeat:Connect(function()
         local id = track.Animation.AnimationId:match("%d+")
         if Config.biteAnims[id] then isBitingAnim = true end
         if id == Config.stingId then local timeLeft = track.Length - track.TimePosition if timeLeft > Config.stingEndWindow then blockBiteForSting = true end end
-    end
+    end 
 
     if _G.AuraEnabled and isBitingAnim and not blockBiteForSting then
         if tick() - lastBiteTime >= _G.BiteInterval then
@@ -504,16 +525,16 @@ RunService.Heartbeat:Connect(function()
             if target then
                 if _G.ShowHUD then
                     TargetGui.Adornee = target.char:FindFirstChild("Head") or target.part
-                    TargetGui.Enabled = true
+                    TargetGui.Enabled = true 
                     T_Name.Text = "🎯 " .. target.name
                     T_HP.Text = string.format("%.1f / %.1f HP", target.hum.Health, target.hum.MaxHealth)
                     local pct = (target.hum.Health / target.hum.MaxHealth)
-                    T_HP.TextColor3 = pct > 0.3 and Color3.new(0, 1, 0) or Color3.new(1, 0, 0)
+                    T_HP.TextColor3 = pct > 0.3 and Color3.new(0, 1, 0) or Color3.new(1, 0, 0) 
                 end
                 BiteEvent:FireServer("Bite", target.hum, target.part)
                 lastBiteTime = tick()
             else TargetGui.Enabled = false end
-        end
+        end 
     else TargetGui.Enabled = false end
 
     if _G.DigAuraEnabled then
@@ -522,7 +543,7 @@ RunService.Heartbeat:Connect(function()
         if currentTime - lastDigTime >= Config.digInterval then
             local targetPos = hrp.Position + (hrp.CFrame.LookVector * Config.digForwardDist)
             pcall(function() DigEvent:FireServer(Vector3.new(targetPos.X, targetPos.Y - 1, targetPos.Z)) end)
-            lastDigTime = currentTime
+            lastDigTime = currentTime 
         end
     else if DigFrame then DigFrame.Visible = false end end
 end)
@@ -531,9 +552,9 @@ end)
 --  UI RAYFIELD
 ----------------------------------------------------------------
 local Window = Rayfield:CreateWindow({ 
-    Name = "Ant War: Simple hub", 
+    Name = "Ant War | Simple Hub", 
     LoadingTitle = "Ant War Script", 
-    LoadingSubtitle = "V1.2.2.1[Small fix]", 
+    LoadingSubtitle = "V1.2.3-Build-1.2.2 [Ant Body Material & Language Fix]", 
     ConfigurationSaving = { Enabled = true, FolderName = "AntWarConfigs", FileName = "Main" }, 
     KeySystem = false 
 })
@@ -544,103 +565,86 @@ local MovementTab = Window:CreateTab("Movement")
 local VisualTab = Window:CreateTab("Visuals") 
 
 -- Main Tab
-MainTab:CreateLabel("Bite aura work when you biting(animation detection)")
-MainTab:CreateToggle({ Name = "Toggle Bite Aura", CurrentValue = true, Flag = "AuraToggle", Callback = function(Value) _G.AuraEnabled = Value end })
+MainTab:CreateLabel("Bite aura works when biting (animation detection)")
+MainTab:CreateToggle({ Name = "Enable Bite Aura", CurrentValue = true, Flag = "AuraToggle", Callback = function(Value) _G.AuraEnabled = Value end })
 MainTab:CreateSection("Bite Settings")
-MainTab:CreateInput({ Name = "Bite Range", PlaceholderText =_G.BiteRange , Callback = function(Text) _G.BiteRange = tonumber(Text) or 25 end })
-MainTab:CreateInput({ Name = "Bite Speed (Interval)", PlaceholderText =_G.BiteInterval , Callback = function(Text) _G.BiteInterval = tonumber(Text) or 0 end })
+MainTab:CreateInput({ Name = "Bite Range", PlaceholderText = _G.BiteRange , Callback = function(Text) _G.BiteRange = tonumber(Text) or 25 end })
+MainTab:CreateInput({ Name = "Bite Speed (Interval)", PlaceholderText = _G.BiteInterval , Callback = function(Text) _G.BiteInterval = tonumber(Text) or 0 end })
 
--- Acid Aura Section inside Main Tab
 MainTab:CreateSection("Acid Settings")
-MainTab:CreateToggle({ 
-    Name = "Toggle Acid Aura", 
-    CurrentValue = false, 
-    Flag = "AcidAuraToggle", 
-    Callback = function(Value) _G.AcidAuraEnabled = Value end 
-})
-MainTab:CreateToggle({ 
-    Name = "Acid Team Check", 
-    CurrentValue = true, 
-    Flag = "AcidTeamToggle", 
-    Callback = function(Value) _G.AcidTeamCheck = Value end 
-})
-MainTab:CreateToggle({ 
-    Name = "Acid Wall Check", 
-    CurrentValue = true, 
-    Flag = "AcidWallToggle", 
-    Callback = function(Value) _G.AcidWallCheck = Value end 
-})
-MainTab:CreateToggle({ 
-    Name = "Disable Acid Animation", 
-    CurrentValue = false, 
-    Flag = "AcidAnimToggle", 
-    Callback = function(Value) _G.AcidDisableAnim = Value end 
-})
-MainTab:CreateSlider({ 
-    Name = "Acid Range", 
-    Range = {10, 500}, 
-    Increment = 10, 
-    Suffix = "Studs", 
-    CurrentValue = 100, 
-    Flag = "AcidRangeSlider", 
-    Callback = function(Value) _G.AcidRange = Value end 
-})
+MainTab:CreateToggle({ Name = "Enable Acid Aura", CurrentValue = false, Flag = "AcidAuraToggle", Callback = function(Value) _G.AcidAuraEnabled = Value end })
+MainTab:CreateToggle({ Name = "Acid Team Check", CurrentValue = true, Flag = "AcidTeamToggle", Callback = function(Value) _G.AcidTeamCheck = Value end })
+MainTab:CreateToggle({ Name = "Acid Wall Check", CurrentValue = true, Flag = "AcidWallToggle", Callback = function(Value) _G.AcidWallCheck = Value end })
+MainTab:CreateToggle({ Name = "Disable Acid Animation", CurrentValue = false, Flag = "AcidAnimToggle", Callback = function(Value) _G.AcidDisableAnim = Value end })
+MainTab:CreateSlider({ Name = "Acid Range", Range = {10, 500}, Increment = 10, Suffix = " Studs", CurrentValue = 100, Flag = "AcidRangeSlider", Callback = function(Value) _G.AcidRange = Value end })
 
 MainTab:CreateSection("Dig Settings")
-MainTab:CreateToggle({ Name = "Toggle Dig Aura", CurrentValue = false, Flag = "DigToggle", Callback = function(Value) _G.DigAuraEnabled = Value end })
+MainTab:CreateToggle({ Name = "Enable Dig Aura", CurrentValue = false, Flag = "DigToggle", Callback = function(Value) _G.DigAuraEnabled = Value end })
 
 -- Farm Tab
 FarmTab:CreateLabel("NOTE: Save Home Position before turning on Auto Farm!")
-FarmTab:CreateButton({ Name = "Save Current Position as Home", Callback = function() local char = LP.Character if char and char:FindFirstChild("HumanoidRootPart") then _G.HomePos = char.HumanoidRootPart.CFrame Rayfield:Notify({Title = "Success", Content = "Home Position Saved!", Duration = 3}) end end })
+FarmTab:CreateButton({ Name = "Save Current Position as Home", Callback = function() local char = LP.Character if char and char:FindFirstChild("HumanoidRootPart") then _G.HomePos = char.HumanoidRootPart.CFrame Rayfield:Notify({Title = "Success", Content = "Home Position Saved!", Duration = 3}) end end }) 
 FarmTab:CreateToggle({ Name = "Auto Collect Larvae", CurrentValue = false, Flag = "AutoFarmFlag", Callback = function(Value) _G.AutoFarm = Value if Value then task.spawn(function() while _G.AutoFarm do pcall(runFarmCycle) task.wait(FARM_WAIT_TIME) end end) end end })
 
 -- Movement Tab
 MovementTab:CreateSection("WalkSpeed Bypass")
 MovementTab:CreateToggle({ Name = "Enable Speed Bypass", CurrentValue = false, Flag = "BypassToggle", Callback = function(Value) _G.SpeedBypassEnabled = Value end })
-MovementTab:CreateSlider({ Name = "Walk Speed Amount", Range = {16, 40}, Increment = 1, Suffix = " Speed", CurrentValue = 16, Flag = "SpeedSlider", Callback = function(Value) _G.TargetWalkSpeed = Value end })
+MovementTab:CreateSlider({ Name = "Walk Speed Amount", Range = {16, 40}, Increment = 1, Suffix = " Speed", CurrentValue = 16, Flag = "SpeedSlider", Callback = function(Value) _G.TargetWalkSpeed = Value end }) 
 
 -- Visual Tab
 VisualTab:CreateSection("ESP Settings")
-VisualTab:CreateToggle({ Name = "Toggle Other Team ESP", CurrentValue = true, Flag = "ESPToggle", Callback = function(Value) _G.ESPEnabled = Value end })
-VisualTab:CreateButton({ Name = "Fix & Refresh ESP", Callback = function() CleanESP() end })
+VisualTab:CreateToggle({ Name = "Enable Enemy ESP", CurrentValue = true, Flag = "ESPToggle", Callback = function(Value) _G.ESPEnabled = Value end })
+VisualTab:CreateButton({ Name = "Refresh ESP", Callback = function() CleanESP() end })
 VisualTab:CreateSection("HUD Settings")
-VisualTab:CreateToggle({ Name = "Show Target Enemy HUD Display", CurrentValue = true, Flag = "HUDToggle", Callback = function(Value) _G.ShowHUD = Value end })
+VisualTab:CreateToggle({ Name = "Show Enemy Status HUD", CurrentValue = true, Flag = "HUDToggle", Callback = function(Value) _G.ShowHUD = Value end })
 
---Ant Color in VisualTab
+-- Ant Color Settings
 VisualTab:CreateSection("Ant Color Settings")
-
 VisualTab:CreateDropdown({
    Name = "Select Color",
    Options = RobloxColors,
    CurrentOption = {CurrentSelectedColor},
    MultipleOptions = false,
-   Flag = "ColorDropdown",
+   Flag = "ColorDropdown", 
    Callback = function(Option)
        CurrentSelectedColor = type(Option) == "table" and Option[1] or Option
    end,
 })
 
 VisualTab:CreateButton({
-   Name = "Apply Color",
+   Name = "Apply Selected Color",
    Callback = function()
        ExecuteColorChange()
-       Rayfield:Notify({
-          Title = "Success!",
-          Content = "Color set to " .. CurrentSelectedColor,
-          Duration = 3
-       })
+       Rayfield:Notify({ Title = "Success!", Content = "Color updated to " .. CurrentSelectedColor, Duration = 3 }) 
    end,
 })
 
+-- Ant Body Material Settings
+VisualTab:CreateSection("Ant Body Material Settings")
+VisualTab:CreateDropdown({
+   Name = "Select Material",
+   Options = RobloxMaterials,
+   CurrentOption = {CurrentSelectedMaterial},
+   MultipleOptions = false,
+   Flag = "MaterialDropdown",
+   Callback = function(Option)
+       CurrentSelectedMaterial = type(Option) == "table" and Option[1] or Option
+   end,
+})
 
+VisualTab:CreateButton({
+   Name = "Apply Selected Material",
+   Callback = function()
+       ApplyMaterialToParts(CurrentSelectedMaterial)
+       Rayfield:Notify({ Title = "Success!", Content = "Material updated to " .. CurrentSelectedMaterial, Duration = 3 })
+   end,
+})
 
-
+-- Monitor Settings
 VisualTab:CreateSection("Queen & Team Monitor")
 VisualTab:CreateToggle({
-    Name = "Monitor queen and ally(Cause laggy)",
+    Name = "Monitor Queen & Allies (May cause lag)",
     CurrentValue = false,
     Flag = "MonitorToggle",
-    Callback = function(Value)
-      _G.MonitorEnabled = Value
-    end
+    Callback = function(Value) _G.MonitorEnabled = Value end
 })
