@@ -398,7 +398,7 @@ local function UpdateESP()
             local highlight = char:FindFirstChild("TeamESP") or Instance.new("Highlight", char)
             highlight.Name = "TeamESP"; highlight.OutlineColor = teamColor; highlight.FillTransparency = 1
             local box = char:FindFirstChild("FloatingBox") or Instance.new("BoxHandleAdornment", char)
-            box.Name = "FloatingBox"; box.Size = Vector3.new(1.8, 1.8, 1.8); box.AlwaysOnTop = true; box.ZIndex = 10; box.Transparency = 0.4
+            box.Name = "FloatingBox"; box.Size = Vector3.new(1.8, 1.8, 1.8); box.AlwaysOnTop = true; box.ZIndex = 10; box.Transparency = 0.1
             box.Adornee = char:FindFirstChild("HumanoidRootPart"); box.CFrame = CFrame.new(0, 5, 0); box.Color3 = teamColor
         end
     end
@@ -554,7 +554,7 @@ end)
 local Window = Rayfield:CreateWindow({ 
     Name = "Ant War | Simple Hub", 
     LoadingTitle = "Ant War Script", 
-    LoadingSubtitle = "V1.2.3-Build-1.2.2 [Ant Body Material & Language Fix]", 
+    LoadingSubtitle = "V1.2.3-Build-1.2.2 ", 
     ConfigurationSaving = { Enabled = true, FolderName = "AntWarConfigs", FileName = "Main" }, 
     KeySystem = false 
 })
@@ -565,7 +565,7 @@ local MovementTab = Window:CreateTab("Movement")
 local VisualTab = Window:CreateTab("Visuals") 
 
 -- Main Tab
-MainTab:CreateLabel("Bite aura works when biting (animation detection)")
+MainTab:CreateLabel("Anything Work Great,Then Update Will Stopped. Wait I Forgot Sting Aura Right?")
 MainTab:CreateToggle({ Name = "Enable Bite Aura", CurrentValue = true, Flag = "AuraToggle", Callback = function(Value) _G.AuraEnabled = Value end })
 MainTab:CreateSection("Bite Settings")
 MainTab:CreateInput({ Name = "Bite Range", PlaceholderText = _G.BiteRange , Callback = function(Text) _G.BiteRange = tonumber(Text) or 25 end })
