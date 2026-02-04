@@ -652,5 +652,5 @@ VisualTab:CreateToggle({
 -- Misc Tab
 MainTab:CreateLabel("Im thinking for anything in this tab")
 MainTab:CreateLabel("This tab is now empty")
-
+end
 })
