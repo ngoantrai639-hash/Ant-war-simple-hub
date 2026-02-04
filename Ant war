@@ -554,7 +554,7 @@ end)
 local Window = Rayfield:CreateWindow({ 
     Name = "Ant War | Simple Hub", 
     LoadingTitle = "Ant War Script", 
-    LoadingSubtitle = "V1.2.3-Build-1.2.2 ", 
+    LoadingSubtitle = "V1.2.3.1 ", 
     ConfigurationSaving = { Enabled = true, FolderName = "AntWarConfigs", FileName = "Main" }, 
     KeySystem = false 
 })
@@ -563,9 +563,10 @@ local MainTab = Window:CreateTab("Auras")
 local FarmTab = Window:CreateTab("Farm")
 local MovementTab = Window:CreateTab("Movement") 
 local VisualTab = Window:CreateTab("Visuals") 
+local MiscTab = Window:CreateTab("Misc(Useless)")
 
 -- Main Tab
-MainTab:CreateLabel("Anything Work Great,Then Update Will Stopped. Wait I Forgot Sting Aura Right?")
+MainTab:CreateLabel("Anything Work Great,Then Update Will Stop or Reduce")
 MainTab:CreateToggle({ Name = "Enable Bite Aura", CurrentValue = true, Flag = "AuraToggle", Callback = function(Value) _G.AuraEnabled = Value end })
 MainTab:CreateSection("Bite Settings")
 MainTab:CreateInput({ Name = "Bite Range", PlaceholderText = _G.BiteRange , Callback = function(Text) _G.BiteRange = tonumber(Text) or 25 end })
@@ -647,4 +648,7 @@ VisualTab:CreateToggle({
     CurrentValue = false,
     Flag = "MonitorToggle",
     Callback = function(Value) _G.MonitorEnabled = Value end
+-- Misc Tab
+MainTab:CreateLabel("Im thinking for anything in this tab")
+MainTab:CreateLabel("This tab is now empty")
 })
