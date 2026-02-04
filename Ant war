@@ -648,7 +648,9 @@ VisualTab:CreateToggle({
     CurrentValue = false,
     Flag = "MonitorToggle",
     Callback = function(Value) _G.MonitorEnabled = Value end
+
 -- Misc Tab
 MainTab:CreateLabel("Im thinking for anything in this tab")
 MainTab:CreateLabel("This tab is now empty")
+
 })
