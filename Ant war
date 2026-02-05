@@ -20,6 +20,11 @@ _G.ESPEnabled = true
 _G.SpeedBypassEnabled = false 
 _G.TargetWalkSpeed = 16 
 
+-- Safe Teleport States (New)
+local TWEEN_SPEED = 36
+local FLY_HEIGHT = 100
+local SelectedPlayerName = nil
+
 -- Ant Color States
 local CurrentSelectedColor = "White"
 local RainbowEnabled = false
@@ -81,6 +86,56 @@ local TargetGui, T_Name, T_HP, DigFrame, DigTitle, DigStatus
 local MonitorFrame, MonitorLabel 
 
 ----------------------------------------------------------------
+--  TELEPORT FUNCTIONS
+----------------------------------------------------------------
+local function getPlayersByTeam(isTeammate)
+    local list = {}
+    for _, p in pairs(Players:GetPlayers()) do
+        if p ~= LP then
+            local sameTeam = (p.Team == LP.Team)
+            if (isTeammate and sameTeam) or (not isTeammate and not sameTeam) then
+                table.insert(list, p.Name)
+            end
+        end
+    end
+    return list
+end
+
+local function executeSafeTween()
+    if not SelectedPlayerName or SelectedPlayerName == "" then
+        Rayfield:Notify({Title = "Error", Content = "Please select a player first!", Duration = 3})
+        return 
+    end
+    
+    local targetPlayer = Players:FindFirstChild(SelectedPlayerName)
+    if targetPlayer and targetPlayer.Character and targetPlayer.Character:FindFirstChild("HumanoidRootPart") then
+        local rootPart = LP.Character:FindFirstChild("HumanoidRootPart")
+        local targetPart = targetPlayer.Character.HumanoidRootPart
+        
+        if rootPart then
+            local startPos = rootPart.Position
+            local upPos = startPos + Vector3.new(0, FLY_HEIGHT, 0)
+            local targetUpPos = targetPart.Position + Vector3.new(0, FLY_HEIGHT, 0)
+            local finalCFrame = targetPart.CFrame
+            
+            local function runTween(targetCFrame)
+                local dist = (rootPart.Position - targetCFrame.Position).Magnitude
+                local duration = dist / TWEEN_SPEED
+                local tween = TweenService:Create(rootPart, TweenInfo.new(duration, Enum.EasingStyle.Linear), {CFrame = targetCFrame})
+                tween:Play()
+                tween.Completed:Wait()
+            end
+
+            Rayfield:Notify({Title = "Teleporting", Content = "Flying to " .. SelectedPlayerName .. " at height " .. FLY_HEIGHT, Duration = 2})
+            
+            runTween(CFrame.new(upPos))       -- Phase 1: Rise
+            runTween(CFrame.new(targetUpPos)) -- Phase 2: Horizontal Fly
+            runTween(finalCFrame)             -- Phase 3: Land
+        end
+    end
+end
+
+----------------------------------------------------------------
 --  ACID AURA HELPER FUNCTIONS
 ----------------------------------------------------------------
 local function isBehindWall(targetPart)
@@ -110,7 +165,7 @@ local function getClosestAcidTarget()
         if player ~= LP and player.Character then
             local root = player.Character:FindFirstChild("HumanoidRootPart")
             local hum = player.Character:FindFirstChildOfClass("Humanoid") 
-            
+  
             if root and hum and hum.Health > 0 then
                 local canTarget = true
                 if _G.AcidTeamCheck and player.Team == LP.Team then canTarget = false end
@@ -142,7 +197,6 @@ local RobloxColors = {
     "White", "Black", "Dark stone grey"
 }
 
--- Material List Generator
 local RobloxMaterials = {}
 for _, mat in ipairs(Enum.Material:GetEnumItems()) do
     table.insert(RobloxMaterials, mat.Name)
@@ -250,14 +304,21 @@ local function SetupHUDs()
     ScreenGui.Parent = playerGui
 
     TargetGui = Instance.new("BillboardGui", ScreenGui)
-    TargetGui.Name = "TargetOverhead"; TargetGui.Size = UDim2.new(0, 200, 0, 50)
-    TargetGui.StudsOffset = Vector3.new(0, 4, 0); TargetGui.AlwaysOnTop = true; TargetGui.Enabled = false
+    TargetGui.Name = "TargetOverhead";
+    TargetGui.Size = UDim2.new(0, 200, 0, 50)
+    TargetGui.StudsOffset = Vector3.new(0, 4, 0); TargetGui.AlwaysOnTop = true;
+    TargetGui.Enabled = false
     local TFrame = Instance.new("Frame", TargetGui)
-    TFrame.Size = UDim2.new(1, 0, 1, 0); TFrame.BackgroundTransparency = 1
+    TFrame.Size = UDim2.new(1, 0, 1, 0);
+    TFrame.BackgroundTransparency = 1
     T_Name = Instance.new("TextLabel", TFrame)
-    T_Name.Size = UDim2.new(1, 0, 0.4, 0); T_Name.BackgroundTransparency = 1; T_Name.TextColor3 = Color3.new(1, 1, 1); T_Name.Font = "GothamBold"; T_Name.TextSize = 14
+    T_Name.Size = UDim2.new(1, 0, 0.4, 0);
+    T_Name.BackgroundTransparency = 1; T_Name.TextColor3 = Color3.new(1, 1, 1); T_Name.Font = "GothamBold";
+    T_Name.TextSize = 14
     T_HP = Instance.new("TextLabel", TFrame)
-    T_HP.Size = UDim2.new(1, 0, 0.6, 0); T_HP.Position = UDim2.new(0, 0, 0.4, 0); T_HP.BackgroundTransparency = 1; T_HP.Font = "GothamBold"; T_HP.TextSize = 18
+    T_HP.Size = UDim2.new(1, 0, 0.6, 0);
+    T_HP.Position = UDim2.new(0, 0, 0.4, 0); T_HP.BackgroundTransparency = 1; T_HP.Font = "GothamBold";
+    T_HP.TextSize = 18
 
     MonitorFrame = Instance.new("Frame", ScreenGui)
     MonitorFrame.Size = UDim2.new(0, 280, 0, 90)
@@ -266,11 +327,14 @@ local function SetupHUDs()
     MonitorFrame.BackgroundTransparency = 0.4
     MonitorFrame.Visible = false 
     Instance.new("UICorner", MonitorFrame)
-    local stroke = Instance.new("UIStroke", MonitorFrame); stroke.Color = Color3.fromRGB(255, 255, 255); stroke.Thickness = 1; stroke.Transparency = 0.8
+    local stroke = Instance.new("UIStroke", MonitorFrame);
+    stroke.Color = Color3.fromRGB(255, 255, 255); stroke.Thickness = 1; stroke.Transparency = 0.8
     
     MonitorLabel = Instance.new("TextLabel", MonitorFrame)
-    MonitorLabel.Size = UDim2.new(1, -20, 1, -10); MonitorLabel.Position = UDim2.new(0, 10, 0, 5); MonitorLabel.BackgroundTransparency = 1; MonitorLabel.TextColor3 = Color3.new(1, 1, 1)
-    MonitorLabel.Font = "GothamBold"; MonitorLabel.TextSize = 13; MonitorLabel.TextXAlignment = "Left"; MonitorLabel.RichText = true; MonitorLabel.Text = ""
+    MonitorLabel.Size = UDim2.new(1, -20, 1, -10);
+    MonitorLabel.Position = UDim2.new(0, 10, 0, 5); MonitorLabel.BackgroundTransparency = 1; MonitorLabel.TextColor3 = Color3.new(1, 1, 1)
+    MonitorLabel.Font = "GothamBold";
+    MonitorLabel.TextSize = 13; MonitorLabel.TextXAlignment = "Left"; MonitorLabel.RichText = true; MonitorLabel.Text = ""
 end
 
 SetupHUDs()
@@ -343,7 +407,7 @@ local function UpdateMonitor()
                     if (p.Character.PrimaryPart.Position - qR.Position).Magnitude <= Config.detectionRadius then e = e + 1 end
                 end
             end
-            if e > 0 then displayText = displayText .. "❗ Enemies near Queen:  <font color='rgb(255,150,0)'>" .. e .. "</font>\n" end 
+            if e > 0 then displayText = displayText .. "❗ Enemies near Queen: <font color='rgb(255,150,0)'>" .. e .. "</font>\n" end 
         end
     end
 
@@ -396,10 +460,14 @@ local function UpdateESP()
             local char = player.Character
             local teamColor = Config.teamColors[player.Team.Name] or Color3.new(1, 1, 1)
             local highlight = char:FindFirstChild("TeamESP") or Instance.new("Highlight", char)
-            highlight.Name = "TeamESP"; highlight.OutlineColor = teamColor; highlight.FillTransparency = 1
+            highlight.Name = "TeamESP";
+            highlight.OutlineColor = teamColor; highlight.FillTransparency = 1
             local box = char:FindFirstChild("FloatingBox") or Instance.new("BoxHandleAdornment", char)
-            box.Name = "FloatingBox"; box.Size = Vector3.new(1.8, 1.8, 1.8); box.AlwaysOnTop = true; box.ZIndex = 10; box.Transparency = 0.1
-            box.Adornee = char:FindFirstChild("HumanoidRootPart"); box.CFrame = CFrame.new(0, 5, 0); box.Color3 = teamColor
+            box.Name = "FloatingBox";
+            box.Size = Vector3.new(1.8, 1.8, 1.8); box.AlwaysOnTop = true; box.ZIndex = 10;
+            box.Transparency = 0.1
+            box.Adornee = char:FindFirstChild("HumanoidRootPart");
+            box.CFrame = CFrame.new(0, 5, 0); box.Color3 = teamColor
         end
     end
 end
@@ -554,7 +622,7 @@ end)
 local Window = Rayfield:CreateWindow({ 
     Name = "Ant War | Simple Hub", 
     LoadingTitle = "Ant War Script", 
-    LoadingSubtitle = "V1.2.3.1 ", 
+    LoadingSubtitle = "V1.2.4 ", 
     ConfigurationSaving = { Enabled = true, FolderName = "AntWarConfigs", FileName = "Main" }, 
     KeySystem = false 
 })
@@ -563,10 +631,10 @@ local MainTab = Window:CreateTab("Auras")
 local FarmTab = Window:CreateTab("Farm")
 local MovementTab = Window:CreateTab("Movement") 
 local VisualTab = Window:CreateTab("Visuals") 
-local MiscTab = Window:CreateTab("Misc(Useless)")
+local MiscTab = Window:CreateTab("Misc") 
 
 -- Main Tab
-MainTab:CreateLabel("Anything Work Great,Then Update Will Stop or Reduce")
+MainTab:CreateLabel("Now,misc tab is usefull")
 MainTab:CreateToggle({ Name = "Enable Bite Aura", CurrentValue = true, Flag = "AuraToggle", Callback = function(Value) _G.AuraEnabled = Value end })
 MainTab:CreateSection("Bite Settings")
 MainTab:CreateInput({ Name = "Bite Range", PlaceholderText = _G.BiteRange , Callback = function(Text) _G.BiteRange = tonumber(Text) or 25 end })
@@ -648,4 +716,51 @@ VisualTab:CreateToggle({
     CurrentValue = false,
     Flag = "MonitorToggle",
     Callback = function(Value) _G.MonitorEnabled = Value end
+})
+
+-- Misc Tab
+MiscTab:CreateSection("Teleports")
+
+local TeamDrop = MiscTab:CreateDropdown({
+    Name = "Select Ally",
+    Options = getPlayersByTeam(true),
+    CurrentOption = {""},
+    MultipleOptions = false,
+    Callback = function(Option) SelectedPlayerName = Option[1] end,
+})
+
+MiscTab:CreateButton({
+    Name = "Teleport to Ally",
+    Callback = executeSafeTween,
+})
+
+local EnemyDrop = MiscTab:CreateDropdown({
+    Name = "Select Enemy",
+    Options = getPlayersByTeam(false),
+    CurrentOption = {""},
+    MultipleOptions = false,
+    Callback = function(Option) SelectedPlayerName = Option[1] end,
+})
+
+MiscTab:CreateButton({
+    Name = "Teleport to Enemy",
+    Callback = executeSafeTween,
+})
+
+MiscTab:CreateSlider({
+   Name = "Flight Height",
+   Range = {20, 100},
+   Increment = 10,
+   Suffix = " Studs",
+   CurrentValue = 35,
+   Callback = function(Value) FLY_HEIGHT = Value end,
+})
+
+MiscTab:CreateButton({
+    Name = "Refresh Player Lists",
+    Callback = function()
+        TeamDrop:Refresh(getPlayersByTeam(true))
+        EnemyDrop:Refresh(getPlayersByTeam(false))
+        Rayfield:Notify({Title = "Updated", Content = "Player lists refreshed!", Duration = 2})
+    end,
 })
