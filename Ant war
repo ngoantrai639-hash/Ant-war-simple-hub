@@ -20,9 +20,9 @@ _G.ESPEnabled = true
 _G.SpeedBypassEnabled = false 
 _G.TargetWalkSpeed = 16 
 
--- Safe Teleport States (New)
+-- Teleport States
 local TWEEN_SPEED = 36
-local FLY_HEIGHT = 100
+local FLY_HEIGHT = 35
 local SelectedPlayerName = nil
 
 -- Ant Color States
@@ -635,6 +635,7 @@ local MiscTab = Window:CreateTab("Misc")
 
 -- Main Tab
 MainTab:CreateLabel("Now,misc tab is usefull")
+MainTab:CreateLabel("If you see this script with key,you got scammed,remember,this script is NO KEY!!!!")
 MainTab:CreateToggle({ Name = "Enable Bite Aura", CurrentValue = true, Flag = "AuraToggle", Callback = function(Value) _G.AuraEnabled = Value end })
 MainTab:CreateSection("Bite Settings")
 MainTab:CreateInput({ Name = "Bite Range", PlaceholderText = _G.BiteRange , Callback = function(Text) _G.BiteRange = tonumber(Text) or 25 end })
