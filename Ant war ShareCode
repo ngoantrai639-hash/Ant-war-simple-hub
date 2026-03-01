@@ -1,0 +1,1196 @@
+-- 
+local Rayfield = loadstring(game:HttpGet('https://sirius.menu/rayfield'))()
+
+local Players = game:GetService("Players")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
+
+local LP = Players.LocalPlayer
+local ServerEvents = ReplicatedStorage:WaitForChild("ServerEvents")
+local BiteEvent = ServerEvents:WaitForChild("Bite")
+local DigEvent = ServerEvents:WaitForChild("Dig")
+local LarvaeEvent = ServerEvents:WaitForChild("Larvae")
+local AcidEvent = ServerEvents:WaitForChild("Acid")
+
+-- Global States
+_G.AuraEnabled = true
+_G.DigAuraEnabled = false
+_G.ShowHUD = true
+_G.ESPEnabled = true
+_G.SpeedBypassEnabled = false 
+_G.TargetWalkSpeed = 16 
+_G.StingHitboxEnabled = true
+_G.StingHitboxSize = 25
+local enemyPreviousHealth = {}
+local damageFlashTimer = 0
+local lastDamageDealt = 0
+local queenDeadNotified = {} 
+
+
+-- Teleport States
+local TWEEN_SPEED = 36
+local FLY_HEIGHT = 35
+local SelectedPlayerName = nil
+
+-- Ant Color States
+local CurrentSelectedColor = "White"
+local RainbowEnabled = false
+
+-- Acid Aura States
+_G.AcidAuraEnabled = false
+_G.AcidTeamCheck = true
+_G.AcidWallCheck = true
+_G.AcidDisableAnim = false
+_G.AcidRange = 100
+local ACID_ANIM_ID = "rbxassetid://11157254990"
+
+-- Monitor States 
+_G.MonitorEnabled = false
+local allyHealthCache = {}
+local enemyHealthCache = {} 
+local lastQueenHealth = 100
+local allyAlertTimer = 0
+_G.QueenAttackTimer = 0
+_G.DeathTimer = 0
+_G.DeathMsg = ""
+local deathMsgColor = "#FFFFFF"
+
+-- Manual respawn timer to fix not showing time
+local manualRespawnTimer = 0
+local isDeadNow = false
+
+-- Auto Farm States
+_G.AutoFarm = false
+_G.HomePos = nil
+_G.CurrentSize = "Minor"
+_G.GatherCount = 0
+local FARM_WAIT_TIME = 5
+local SPAM_DURATION = 0.25 
+
+-- Bite Customization States
+_G.BiteRange = 20
+_G.BiteInterval = 0 
+local lastBiteTime = 0
+
+-- Protection States
+_G.QueenProtectEnabled = false
+_G.PatrolRadius = 50
+_G.GuardDetectionRange = 100
+_G.CurrentQueen = nil
+
+local Config = {
+    rangeQueen = 25,
+    rangePlayer = 25,
+    biteAnims = {["11157251132"] = true, ["11157253523"] = true},
+    stingId = "11157256255",
+    stingEndWindow = 0.35, 
+    digForwardDist = 5,
+    digInterval = 0.01,
+ 
+-- 
+    sizeLimits = {
+        ["Minor"] = 6,
+        ["Major"] = 6, 
+        ["Supermajor"] = 6
+    },
+    teamColors = {
+        ["Leaf Kingdom"] = Color3.fromRGB(0, 255, 0),
+        ["Fire Nation"] = Color3.fromRGB(255, 165, 0),
+        ["Golden Empire"] = Color3.fromRGB(255, 255, 0),
+        ["Concrete Clan"] = Color3.fromRGB(200, 200, 200)
+  
+-- 
+    },
+    detectionRadius = 150,
+    enemyNearMeDist = 50 
+}
+
+local cachedQueens = {} 
+local myTeamQueenName = "Unknown"
+local myTeamColor = Color3.new(1,1,1)
+
+local lastDigTime = 0
+local TargetGui, T_Name, T_HP, DigFrame, DigTitle, DigStatus
+local MonitorFrame, MonitorLabel 
+
+local function GetMyTeamQueen()
+    for _, obj in pairs(workspace:GetDescendants()) do
+        if obj.Name == "Queen" and obj:IsA("Model") then
+            local isSameTeam = false
+            local teamName = LP.Team and LP.Team.Name or ""
+            if obj.Parent and (obj.Parent.Name == 
+-- 
+ teamName or obj.Parent.Name:find(teamName)) then
+                isSameTeam = true
+            elseif obj:FindFirstChild("TeamColor") and obj.TeamColor == LP.TeamColor then
+                isSameTeam = true
+            end
+
+            if isSameTeam and (obj.PrimaryPart or obj:FindFirstChild("HumanoidRootPart")) then
+             
+-- 
+                return obj
+            end
+        end
+    end
+    return nil
+end
+
+local function GetClosestEnemyToQueen(queen)
+    local closestEnemy = nil
+    local shortestDistance = _G.GuardDetectionRange
+    local queenPos = queen.PrimaryPart and queen.PrimaryPart.Position or queen:FindFirstChild("HumanoidRootPart").Position
+
+    for _, p in pairs(Players:GetPlayers()) do
+        if p ~= LP and p.Team ~= LP.Team and p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
+           
+-- 
+            local enemyRoot = p.Character.HumanoidRootPart
+            local distToQueen = (queenPos - enemyRoot.Position).Magnitude
+            local health = p.Character:FindFirstChildOfClass("Humanoid") and p.Character:FindFirstChildOfClass("Humanoid").Health or 0
+            
+            if distToQueen < _G.GuardDetectionRange and health > 0 then
+                closestEnemy = p.Character
+          
+-- 
+                shortestDistance = distToQueen
+            end
+        end
+    end
+    return closestEnemy
+end
+
+LP.CharacterAdded:Connect(function(newChar)
+    task.wait(1)
+    if _G.QueenProtectEnabled then
+        _G.CurrentQueen = GetMyTeamQueen()
+        Rayfield:Notify({Title = "Update Queen Team", Content = "Updated After Yourself Respawn!", Duration = 3})
+    end
+end)
+
+task.spawn(function()
+    while true do
+        task.wait(0.5)
+    
+-- 
+        if not _G.QueenProtectEnabled then continue end
+        
+        local char = LP.Character
+        local hum = char and char:FindFirstChildOfClass("Humanoid")
+        local root = char and char:FindFirstChild("HumanoidRootPart")
+        
+        if not hum or hum.Health <= 0 then continue end
+
+        if not _G.CurrentQueen or not _G.CurrentQueen.Parent then
+       
+-- 
+            _G.CurrentQueen = GetMyTeamQueen()
+        end
+
+        local queen = _G.CurrentQueen
+        if not queen then continue end
+        local queenPos = queen.PrimaryPart and queen.PrimaryPart.Position or queen:FindFirstChild("HumanoidRootPart").Position
+
+        local enemy = GetClosestEnemyToQueen(queen)
+
+        if enemy and enemy:FindFirstChild("HumanoidRootPart") then
+            -- Chase enemy
+         
+-- 
+            while _G.QueenProtectEnabled and enemy and enemy:FindFirstChildOfClass("Humanoid") and enemy:FindFirstChildOfClass("Humanoid").Health > 0 do
+                local distToQueen = (queenPos - enemy.HumanoidRootPart.Position).Magnitude
+                if distToQueen > _G.GuardDetectionRange then break end
+                
+                hum:MoveTo(enemy.HumanoidRootPart.Position)
+            
+-- 
+                task.wait(0.1)
+            end
+        else
+            -- Patrol
+            local randomPos = queenPos + Vector3.new(math.random(-_G.PatrolRadius, _G.PatrolRadius), 0, math.random(-_G.PatrolRadius, _G.PatrolRadius))
+            hum:MoveTo(randomPos)
+            local startWait = tick()
+            repeat task.wait(0.1) until 
+-- 
+ (root.Position - randomPos).Magnitude < 5 or GetClosestEnemyToQueen(queen) or tick() - startWait > 5
+        end
+    end
+end)
+
+local function ApplyStingHitbox(character)
+    if not _G.StingHitboxEnabled then return end
+    
+    task.wait(2) 
+    
+    for _, v in pairs(character:GetDescendants()) do
+        if v.Name == "StingHitbox" and v:IsA("BasePart") then
+            v.Size = Vector3.new(_G.StingHitboxSize, _G.StingHitboxSize, _G.StingHitboxSize)
+        
+-- 
+        end
+    end
+end
+
+LP.CharacterAdded:Connect(ApplyStingHitbox)
+
+local function getPlayersByTeam(isTeammate)
+    local list = {}
+    for _, p in pairs(Players:GetPlayers()) do
+        if p ~= LP then
+            local sameTeam = (p.Team == LP.Team)
+            if (isTeammate and sameTeam) or (not isTeammate and not sameTeam) then
+                table.insert(list, p.Name)
+       
+-- 
+            end
+        end
+    end
+    return list
+end
+
+local function executeSafeTween()
+    if not SelectedPlayerName or SelectedPlayerName == "" then
+        Rayfield:Notify({Title = "Error", Content = "Please select a player first!", Duration = 3})
+        return 
+    end
+    
+    local targetPlayer = Players:FindFirstChild(SelectedPlayerName)
+    if targetPlayer and targetPlayer.Character and targetPlayer.Character:FindFirstChild("HumanoidRootPart") then
+        local rootPart = 
+-- 
+ LP.Character:FindFirstChild("HumanoidRootPart")
+        local targetPart = targetPlayer.Character.HumanoidRootPart
+        
+        if rootPart then
+            local startPos = rootPart.Position
+            local upPos = startPos + Vector3.new(0, FLY_HEIGHT, 0)
+            local targetUpPos = targetPart.Position + Vector3.new(0, FLY_HEIGHT, 0)
+            local finalCFrame = targetPart.CFrame
+   
+-- 
+            
+            local function runTween(targetCFrame)
+                local dist = (rootPart.Position - targetCFrame.Position).Magnitude
+                local duration = dist / TWEEN_SPEED
+                local tween = TweenService:Create(rootPart, TweenInfo.new(duration, Enum.EasingStyle.Linear), {CFrame = targetCFrame})
+           
+-- 
+                tween:Play()
+                tween.Completed:Wait()
+            end
+
+            Rayfield:Notify({Title = "Teleporting", Content = "Flying to " .. SelectedPlayerName .. " at height " .. FLY_HEIGHT, Duration = 2})
+            
+            runTween(CFrame.new(upPos))       -- Phase 1: Rise
+  
+-- 
+            runTween(CFrame.new(targetUpPos)) -- Phase 2: Horizontal Fly
+            runTween(finalCFrame)             -- Phase 3: Land
+        end
+    end
+end
+
+local function isBehindWall(targetPart)
+    if not _G.AcidWallCheck then return false end
+    local char = LP.Character
+    if not char or not char:FindFirstChild("HumanoidRootPart") then return false end
+    
+    
+-- 
+ local origin = char.HumanoidRootPart.Position
+    local destination = targetPart.Position
+    local direction = (destination - origin).Unit * (destination - origin).Magnitude
+    
+    local raycastParams = RaycastParams.new()
+    raycastParams.FilterDescendantsInstances = {char, targetPart.Parent}
+    raycastParams.FilterType = Enum.RaycastFilterType.Exclude
+    
+    local raycastResult = workspace:Raycast(origin, direction, raycastParams) 
+    return raycastResult ~= nil
+end
+
+local function getClosestAcidTarget()
+    local closestPos = nil
+    local shortestDistance = _G.AcidRange
+    local char = LP.Character
+    if not char or not 
+-- 
+ char:FindFirstChild("HumanoidRootPart") then return nil end
+
+    for _, player in pairs(Players:GetPlayers()) do
+        if player ~= LP and player.Character then
+            local root = player.Character:FindFirstChild("HumanoidRootPart")
+            local hum = player.Character:FindFirstChildOfClass("Humanoid") 
+  
+            if root and hum and hum.Health > 0 then
+                local canTarget = true
+ 
+-- 
+                if _G.AcidTeamCheck and player.Team == LP.Team then canTarget = false end
+
+                if canTarget then
+                    local distance = (char.HumanoidRootPart.Position - root.Position).Magnitude 
+                    if distance < shortestDistance then
+       
+-- 
+                        if not isBehindWall(root) then
+                            shortestDistance = distance 
+                            closestPos = root.Position
+                   
+-- 
+                        end
+                    end
+                end
+            end 
+        end
+    end
+    return closestPos
+end
+
+local RobloxColors = {}
+
+for i = 1, 1032 do
+    local color = BrickColor.new(i)
+    local colorName = color.Name
+  
+-- 
+    
+    local exists = false
+    for _, name in ipairs(RobloxColors) do
+        if name == colorName then
+            exists = true
+            break
+        end
+    end
+    
+    if not exists then
+        table.insert(RobloxColors, colorName)
+    end
+end
+
+local RobloxMaterials = {}
+for _, mat in ipairs(Enum.Material:GetEnumItems()) 
+-- 
+ do
+    table.insert(RobloxMaterials, mat.Name)
+end
+table.sort(RobloxMaterials)
+local CurrentSelectedMaterial = "Plastic"
+
+local DarkerParts = {
+    "ThoraxBits", "Neck", "Petiole", "Stinger", "Antennae", 
+    "RightMandible", "LeftMandible", 
+    "LAntenna1", "LAntenna2", "LAntenna3", 
+    "RAntenna1", "RAntenna2", "RAntenna3"
+}
+
+local ExcludedParts = {"Eyes", "Glisten", "HoneypotStrips", "Liquid"}
+
+local function ApplyColorToParts(color)
+    local char = LP.Character
+    if not char then return end
+
+    local isNeonColor = string.find(string.lower(CurrentSelectedColor), "neon")
+    local baseColor = color
+    local darkerColor = baseColor:Lerp(Color3.new(0, 0, 0), 0.35)
+
+    for _, obj in pairs(char:GetDescendants()) do
+   
+-- 
+        if obj:IsA("BasePart") then
+            local isExcluded = false
+            for _, exName in pairs(ExcludedParts) do 
+                if obj.Name == exName then isExcluded = true break end
+            end
+
+            if not isExcluded then
+        
+-- 
+                local shouldBeDark = false
+                for _, name in pairs(DarkerParts) do 
+                    if obj.Name == name then shouldBeDark = true break end
+                end
+                if string.find(string.lower(obj.Name), "leg") then shouldBeDark = 
+-- 
+ true end
+
+                obj.Color = shouldBeDark and darkerColor or baseColor
+                if isNeonColor then 
+                    obj.Material = Enum.Material.Neon
+                end
+            end
+        
+-- 
+        end
+    end
+end
+
+local function ApplyMaterialToParts(matName)
+    local char = LP.Character
+    if not char then return end
+    local mat = Enum.Material[matName]
+
+    for _, obj in pairs(char:GetDescendants()) do
+        if obj:IsA("BasePart") then
+            local isExcluded = false
+            for _, exName in pairs(ExcludedParts) do
+                if obj.Name == exName 
+-- 
+ then isExcluded = true break end
+            end
+            if not isExcluded then
+                obj.Material = mat
+            end
+        end
+    end
+end
+
+task.spawn(function()
+    while task.wait(0.1) do
+        if RainbowEnabled then
+          
+-- 
+            local hue = tick() % 5 / 5 
+            local color = Color3.fromHSV(hue, 1, 1)
+            ApplyColorToParts(color)
+        end
+    end
+end)
+
+local function ExecuteColorChange()
+    RainbowEnabled = false 
+    if CurrentSelectedColor == "Rainbow" then
+        RainbowEnabled = true
+    else
+        local color3Value 
+        
+-- 
+ if CurrentSelectedColor == "Fire Ant" then
+            color3Value = Color3.fromRGB(255, 69, 0) 
+        elseif CurrentSelectedColor == "Bronze" then
+            color3Value = Color3.fromRGB(176, 141, 87) 
+        else
+            color3Value = BrickColor.new(CurrentSelectedColor).Color
+        end
+        ApplyColorToParts(color3Value)
+    end 
+end
+
+local function SetupHUDs()
+ 
+-- 
+    local playerGui = LP:WaitForChild("PlayerGui")
+    if playerGui:FindFirstChild("AntWarVisuals") then playerGui.AntWarVisuals:Destroy() end
+
+    local ScreenGui = Instance.new("ScreenGui")
+    ScreenGui.Name = "AntWarVisuals"
+    ScreenGui.IgnoreGuiInset = true
+    ScreenGui.ResetOnSpawn = false
+    ScreenGui.DisplayOrder = 10 
+    ScreenGui.Parent = playerGui
+
+    TargetGui = Instance.new("BillboardGui", ScreenGui)
+    TargetGui.Name = "TargetOverhead";
+-- 
+ TargetGui.Size = UDim2.new(0, 220, 0, 150)
+    TargetGui.StudsOffset = Vector3.new(0, 4, 0); TargetGui.AlwaysOnTop = true;
+-- 
+ TargetGui.Enabled = false
+    local TFrame = Instance.new("Frame", TargetGui)
+    TFrame.Size = UDim2.new(1, 0, 1, 0);
+-- 
+ TFrame.BackgroundTransparency = 1
+    T_Name = Instance.new("TextLabel", TFrame)
+    T_Name.Size = UDim2.new(1, 0, 0.4, 0);
+-- 
+ T_Name.BackgroundTransparency = 1; T_Name.TextColor3 = Color3.new(1, 1, 1); T_Name.Font = "GothamBold";
+-- 
+ T_Name.TextSize = 14
+    T_HP = Instance.new("TextLabel", TFrame)
+    T_HP.Size = UDim2.new(1, 0, 0.6, 0);
+-- 
+ T_HP.Position = UDim2.new(0, 0, 0.4, 0); T_HP.BackgroundTransparency = 1; T_HP.Font = "GothamBold";
+-- 
+ T_HP.TextSize = 18
+
+    MonitorFrame = Instance.new("Frame", ScreenGui)
+    MonitorFrame.Size = UDim2.new(0, 280, 0, 150)
+    MonitorFrame.Position = UDim2.new(0, 15, 0.4, 0)
+    MonitorFrame.BackgroundColor3 = Color3.fromRGB(0, 0, 0)
+    MonitorFrame.BackgroundTransparency = 0.4
+    MonitorFrame.Visible = false 
+    Instance.new("UICorner", MonitorFrame)
+    local stroke = Instance.new("UIStroke", MonitorFrame);
+-- 
+ stroke.Color = Color3.fromRGB(255, 255, 255); stroke.Thickness = 1; stroke.Transparency = 0.8
+    
+    MonitorLabel = Instance.new("TextLabel", MonitorFrame)
+    MonitorLabel.Size = UDim2.new(1, -20, 1, -10);
+-- 
+ MonitorLabel.Position = UDim2.new(0, 10, 0, 5); MonitorLabel.BackgroundTransparency = 1; MonitorLabel.TextColor3 = Color3.new(1, 1, 1)
+    MonitorLabel.Font = "GothamBold";
+-- 
+ MonitorLabel.TextSize = 13; MonitorLabel.TextXAlignment = "Left"; MonitorLabel.RichText = true; MonitorLabel.Text = ""
+end
+
+SetupHUDs()
+
+local function connectAcidLogic(char)
+    local hum = char:WaitForChild("Humanoid")
+    local animator = hum:WaitForChild("Animator")
+    animator.AnimationPlayed:Connect(function(track)
+        if track.Animation.AnimationId == ACID_ANIM_ID then
+            if _G.AcidDisableAnim then track:Stop() end
+            if _G.AcidAuraEnabled then
+                local targetPos = getClosestAcidTarget()
+    
+-- 
+             if targetPos then AcidEvent:InvokeServer(targetPos) end 
+            end
+        end
+    end)
+end
+
+LP.CharacterAdded:Connect(function(char) 
+    task.wait(0.5) 
+    allyHealthCache = {} 
+    connectAcidLogic(char) 
+end)
+if LP.Character then connectAcidLogic(LP.Character) end
+
+local function UpdateQueenCache()
+    cachedQueens = {}
+    local myTeam = LP.Team
+    local myTeamName = myTeam and myTeam.Name or ""
+    
+    if myTeam then
+        myTeamColor = myTeam.TeamColor.Color
+    end
+
+    for _, v in pairs(workspace:GetDescendants()) do
+        if v.Name == "Queen" and v:IsA("Model") then
+            local parentName = v.Parent and v.Parent.Name or "Unknown"
+            local qInfo = {
+                Model = v,
+                TeamName = parentName,
+                HRP = v.PrimaryPart or v:FindFirstChild("HumanoidRootPart")
+            }
+            table.insert(cachedQueens, qInfo)
+            
+            if parentName == myTeamName or parentName:find(myTeamName) then
+                myTeamQueenName = parentName
+            end
+        end
+    end
+end
+
+local function UpdateMonitor()
+    if not _G.MonitorEnabled or not MonitorFrame then 
+        if MonitorFrame then MonitorFrame.Visible = false end 
+        return 
+    end
+    MonitorFrame.Visible = true
+    
+    local myTeam = LP.Team
+    local myChar = LP.Character
+    local myHum = myChar and myChar:FindFirstChildOfClass("Humanoid")
+    local myHRP = myChar and myChar:FindFirstChild("HumanoidRootPart")
+    
+    local r, g, b = math.floor(myTeamColor.R*255), math.floor(myTeamColor.G*255), math.floor(myTeamColor.B*255)
+    MonitorLabel.Text = string.format("🛡️ <font color='rgb(%d,%d,%d)'>%s Team </font>\n", r, g, b, myTeamQueenName)
+    
+    local display = "<b><font color='#CCCCCC'>[ MONITOR STATUS ]</font></b>\n"
+    
+    -- Manual respawn logic
+    if not myChar or (myHum and myHum.Health <= 0) then
+        if not isDeadNow then
+            isDeadNow = true
+            manualRespawnTimer = 7.0
+        end
+        display = display .. string.format("<font color='#FF3333'>⚠️ You Died, Respawn In: %.1fs</font>\n", math.max(0, manualRespawnTimer))
+        if manualRespawnTimer > 0 then manualRespawnTimer = manualRespawnTimer - 0.02 end
+    else
+        isDeadNow = false
+    end
+
+    local enemiesMe = 0
+    local enemiesQueen = 0
+    local allyDmg = false
+    local siegeCounts = {} 
+
+    for _, p in pairs(Players:GetPlayers()) do
+        if p.Character and p.Character:FindFirstChild("HumanoidRootPart") then
+            local pPos = p.Character.HumanoidRootPart.Position
+            local pHum = p.Character:FindFirstChildOfClass("Humanoid")
+            local distToMe = myHRP and (pPos - myHRP.Position).Magnitude or 999
+
+            if p.Team ~= myTeam then
+                
+                if pHum and distToMe <= 15 then
+                    local prevH = enemyPreviousHealth[p.UserId] or pHum.Health
+                    if pHum.Health < prevH then
+                        lastDamageDealt = math.floor(prevH - pHum.Health)
+                        damageFlashTimer = 2.0
+                    end
+                    enemyPreviousHealth[p.UserId] = pHum.Health
+                end
+
+                if distToMe <= Config.enemyNearMeDist then
+                    enemiesMe = enemiesMe + 1
+                end
+
+                for _, q in pairs(cachedQueens) do
+                    if q.TeamName == myTeamQueenName and q.HRP then
+                        if (pPos - q.HRP.Position).Magnitude <= Config.detectionRadius then
+                            enemiesQueen = enemiesQueen + 1
+                        end
+                    end
+                end
+
+                if pHum then
+                    if pHum.Health <= 0 and (enemyHealthCache[p.UserId] or 100) > 0 then
+                        local msgs = {"Is Dead", "Got Bitten To Death"}
+                        _G.DeathMsg = "Enemy " .. p.DisplayName .. " " .. msgs[math.random(1, #msgs)]
+                        deathMsgColor = "#FF4444"
+                        _G.DeathTimer = 3
+                    end
+                    enemyHealthCache[p.UserId] = pHum.Health
+                end
+            else
+                -- Ally Logic
+                for _, q in pairs(cachedQueens) do
+                    if q.TeamName ~= myTeamQueenName and q.HRP then
+                        if (pPos - q.HRP.Position).Magnitude <= Config.detectionRadius then
+                            siegeCounts[q.TeamName] = (siegeCounts[q.TeamName] or 0) + 1
+                        end
+                    end
+                end
+
+                if p ~= LP and pHum then
+                    if pHum.Health <= 0 and (allyHealthCache[p.UserId] or 100) > 0 then
+                        _G.DeathMsg = p.DisplayName .. " was killed!"
+                        deathMsgColor = "#55AAFF"
+                        _G.DeathTimer = 3
+                    elseif (allyHealthCache[p.UserId] or 100) > pHum.Health then
+                        allyDmg = true
+                    end
+                    allyHealthCache[p.UserId] = pHum.Health
+                end
+            end
+        end
+    end
+
+    for _, q in pairs(cachedQueens) do
+        local hum = q.Model:FindFirstChildOfClass("Humanoid")
+        if hum then
+            local pct = math.floor((hum.Health/hum.MaxHealth)*100)
+            
+            if q.TeamName ~= myTeamQueenName and hum.Health < (allyHealthCache[q.TeamName] or hum.MaxHealth) then
+                _G.DeathMsg = "Enemy " .. q.TeamName .. " Queen Under Attack!"
+                deathMsgColor = "#FFA500"
+                _G.DeathTimer = 2
+            end
+            allyHealthCache[q.TeamName] = hum.Health
+
+            if hum.Health <= 0 and not queenDeadNotified[q.TeamName] then
+                queenDeadNotified[q.TeamName] = true
+                if q.TeamName == myTeamQueenName then
+                    _G.DeathMsg = "Your Queen Is Died"
+                else
+                    _G.DeathMsg = "Enemy " .. q.TeamName .. " Queen Is Died"
+                end
+                deathMsgColor = "#FF0000"
+                _G.DeathTimer = 5
+            end
+
+            if q.TeamName == myTeamQueenName then
+                if hum.Health < lastQueenHealth then _G.QueenAttackTimer = 3 end
+                lastQueenHealth = hum.Health
+                local col = pct > 50 and "#00FF00" or (pct > 25 and "#FFFF00" or "#FF0000")
+                display = display .. "👑 Queen HP: <font color='"..col.."'>" .. pct .. "%</font>\n"
+            end
+        end
+    end
+
+    if damageFlashTimer > 0 then
+        display = display .. "<font color='#FFD700'>      [ DMG: " .. lastDamageDealt .. " ]</font>\n"
+        damageFlashTimer = damageFlashTimer - 0.02
+    end
+
+    if _G.QueenAttackTimer > 0 then
+        display = display .. "⚠️ <font color='#FF0000'>QUEEN UNDER ATTACK!</font>\n"
+        _G.QueenAttackTimer = _G.QueenAttackTimer - 0.02
+    end
+
+    if enemiesQueen > 0 then
+        display = display .. "❗ Enemies near Queen: <font color='#FFA500'>" .. enemiesQueen .. "</font>\n"
+    end
+
+    if enemiesMe > 0 then
+        display = display .. "⚔️ <font color='#FF4500'>" .. enemiesMe .. " Enemy Nearby!</font>\n"
+    end
+
+    if allyDmg then allyAlertTimer = 3 end
+    if allyAlertTimer > 0 then
+        display = display .. "🛡️ <font color='#00BFFF'>Ally taking damage!</font>\n"
+        allyAlertTimer = allyAlertTimer - 0.02
+    end
+
+    if _G.DeathTimer > 0 then
+        display = display .. string.format("<font color='%s'>💀 %s</font>\n", deathMsgColor, _G.DeathMsg)
+        _G.DeathTimer = _G.DeathTimer - 0.02
+    end
+
+    MonitorLabel.Text = MonitorLabel.Text .. display
+end
+
+
+----------------------------------------------------------------
+--  ESP & FARM
+----------------------------------------------------------------
+local function CleanESP()
+    for _, player in ipairs(Players:GetPlayers()) do
+        if player.Character 
+-- 
+ then
+            local h = player.Character:FindFirstChild("TeamESP") 
+            local b = player.Character:FindFirstChild("FloatingBox")
+            if h then h:Destroy() end
+            if b then b:Destroy() end
+        end
+    end
+end
+
+local function UpdateESP()
+    if not _G.ESPEnabled then CleanESP() return end
+    for _, player in ipairs(Players:GetPlayers()) do
+    
+-- 
+     if player ~= LP and player.Team ~= LP.Team and player.Character then 
+            local char = player.Character
+            local teamColor = Config.teamColors[player.Team.Name] or Color3.new(1, 1, 1)
+            local highlight = char:FindFirstChild("TeamESP") or Instance.new("Highlight", char)
+            highlight.Name = "TeamESP";
+-- 
+ highlight.OutlineColor = teamColor; highlight.FillTransparency = 1
+            local box = char:FindFirstChild("FloatingBox") or Instance.new("BoxHandleAdornment", char)
+            box.Name = "FloatingBox";
+-- 
+ box.Size = Vector3.new(1.8, 1.8, 1.8); box.AlwaysOnTop = true; box.ZIndex = 10;
+-- 
+ box.Transparency = 0.1
+            box.Adornee = char:FindFirstChild("HumanoidRootPart");
+-- 
+ box.CFrame = CFrame.new(0, 5, 0); box.Color3 = teamColor
+        end
+    end
+end
+
+local function updateCurrentSize()
+    local char = LP.Character
+    if char then for s, _ in pairs(Config.sizeLimits) do if string.find(char.Name, s) then _G.CurrentSize = s return end end end
+end
+
+local function teleportAndSpamGather(targetLarvae, targetCFrame, duration)
+    local character = LP.Character
+    if character and character:FindFirstChild("HumanoidRootPart") then
+        local startTime = tick()
+        while tick() - startTime < duration do
+     
+-- 
+        if not _G.AutoFarm then break end 
+            character.HumanoidRootPart.CFrame = targetCFrame
+            LarvaeEvent:FireServer("Gather", targetLarvae)
+            RunService.RenderStepped:Wait()
+        end
+    end
+end
+
+local function isPlayerNearby(larvae)
+    local larvaePos = larvae:IsA("Model") and larvae:GetModelCFrame().Position or larvae.Position
+    for _, player in pairs(Players:GetPlayers()) do
+        if player ~= LP and player.Character 
+-- 
+ and player.Character:FindFirstChild("HumanoidRootPart") then 
+            local dist = (player.Character.HumanoidRootPart.Position - larvaePos).Magnitude
+            if dist <= 5 then return true end
+        end
+    end
+    return false
+end
+
+local function runFarmCycle()
+    if not _G.HomePos then
+        Rayfield:Notify({Title = "Error", Content = "Please Save Home Position first!", Duration = 5})
+        _G.AutoFarm = false
+     
+-- 
+    return 
+    end
+    updateCurrentSize()
+    local allLarvae = {}
+    for _, v in pairs(workspace:GetDescendants()) do
+        if v.Name == "Larvae" and (v:IsA("BasePart") or v:IsA("Model")) and not v:IsDescendantOf(LP.Character) then table.insert(allLarvae, v) end
+    end
+    if #allLarvae == 0 then
+        local character = LP.Character
+        if character and character:FindFirstChild("HumanoidRootPart") then character.HumanoidRootPart.CFrame = _G.HomePos end
+        return
+   
+-- 
+  end
+    for i, larvae in ipairs(allLarvae) do 
+        if not _G.AutoFarm then break end
+        if larvae.Parent and not isPlayerNearby(larvae) then
+            local targetCFrame = larvae:IsA("Model") and larvae:GetModelCFrame() or larvae.CFrame
+            teleportAndSpamGather(larvae, targetCFrame, SPAM_DURATION)
+            _G.GatherCount = _G.GatherCount + 1
+            if _G.GatherCount 
+-- 
+ >= Config.sizeLimits[_G.CurrentSize] then
+                local character = LP.Character 
+                if character and character:FindFirstChild("HumanoidRootPart") then character.HumanoidRootPart.CFrame = _G.HomePos end
+                task.wait(8)
+                _G.GatherCount = 0
+                updateCurrentSize()
+    
+-- 
+         end 
+        end
+    end
+end
+
+----------------------------------------------------------------
+--  TARGETING
+----------------------------------------------------------------
+local function GetAuraTarget(hrp)
+    local bestTarget = nil
+    local minDistance = _G.BiteRange
+    for _, p in ipairs(Players:GetPlayers()) do
+        if p ~= LP and p.Team ~= LP.Team and p.Character and p.Character:FindFirstChild("Humanoid") and p.Character:FindFirstChild("HumanoidRootPart") then
+            local dist = (hrp.Position - p.Character.HumanoidRootPart.Position).Magnitude
+            if 
+-- 
+ dist < minDistance and p.Character.Humanoid.Health > 0 then minDistance = dist bestTarget = {hum = p.Character.Humanoid, part = p.Character.HumanoidRootPart, name = p.Name, char = p.Character} end 
+        end
+    end
+    if not bestTarget then
+        pcall(function()
+            local chambers = workspace:FindFirstChild("Map") and workspace.Map:FindFirstChild("Chambers")
+            if chambers then
+                
+-- 
+ for _, chamber in ipairs(chambers:GetChildren()) do
+                    if LP.Team and chamber.Name ~= LP.Team.Name then 
+                        local queen = chamber:FindFirstChild("Queen")
+                        if queen and queen:FindFirstChild("Humanoid") and queen:FindFirstChild("HumanoidRootPart") then
+           
+-- 
+                  local qDist = (hrp.Position - queen.HumanoidRootPart.Position).Magnitude 
+                            if qDist < _G.BiteRange and queen.Humanoid.Health > 0 then bestTarget = {hum = queen.Humanoid, part = queen.HumanoidRootPart, name = "Queen " .. chamber.Name, char = queen} end
+                       
+-- 
+  end
+                    end 
+                end
+            end
+        end)
+    end
+    return bestTarget
+end
+
+RunService.Heartbeat:Connect(function()
+    local char = LP.Character
+    if not char or not char:FindFirstChild("Humanoid") or not char:FindFirstChild("HumanoidRootPart") then return end
+    local hum = char.Humanoid
+ 
+-- 
+    local hrp = char.HumanoidRootPart
+
+    UpdateESP() 
+    UpdateMonitor()
+
+    if _G.SpeedBypassEnabled then if hum.WalkSpeed ~= _G.TargetWalkSpeed then hum.WalkSpeed = _G.TargetWalkSpeed end end
+
+    local isBitingAnim = false
+    local blockBiteForSting = false
+    for _, track in ipairs(hum:GetPlayingAnimationTracks()) do
+        local id = track.Animation.AnimationId:match("%d+")
+        if Config.biteAnims[id] then isBitingAnim = true end
+        if id == Config.stingId then local timeLeft = track.Length - track.TimePosition if timeLeft 
+-- 
+ > Config.stingEndWindow then blockBiteForSting = true end end
+    end 
+
+    if _G.AuraEnabled and isBitingAnim and not blockBiteForSting then
+        if tick() - lastBiteTime >= _G.BiteInterval then
+            local target = GetAuraTarget(hrp)
+            if target then
+                if _G.ShowHUD then
+                
+-- 
+                    TargetGui.Adornee = target.char:FindFirstChild("Head") or target.part
+                    TargetGui.Enabled = true 
+                    T_Name.Text = "Name:" .. target.name
+                    T_HP.Text = string.format("%.1f / %.1f HP", target.hum.Health, target.hum.MaxHealth)
+                  
+-- 
+                    local pct = (target.hum.Health / target.hum.MaxHealth)
+                    T_HP.TextColor3 = pct > 0.3 and Color3.new(0, 1, 0) or Color3.new(1, 0, 0) 
+                end
+                BiteEvent:FireServer("Bite", target.hum, target.part)
+                lastBiteTime = tick()
+        
+-- 
+            else TargetGui.Enabled = false end
+        end 
+    else TargetGui.Enabled = false end
+
+    if _G.DigAuraEnabled then
+        if _G.ShowHUD and DigFrame then DigFrame.Visible = true end
+        local currentTime = tick()
+        if currentTime - lastDigTime >= Config.digInterval then
+            local targetPos = hrp.Position + (hrp.CFrame.LookVector * Config.digForwardDist)
+         
+-- 
+            pcall(function() DigEvent:FireServer(Vector3.new(targetPos.X, targetPos.Y - 1, targetPos.Z)) end)
+            lastDigTime = currentTime 
+        end
+    else if DigFrame then DigFrame.Visible = false end end
+end)
+
+local Window = Rayfield:CreateWindow({ 
+    Name = "Ant War 1.3|Simple Hub 1.2.6.1|Share Code", 
+    LoadingTitle = "Simple Hub For Ant War", 
+    LoadingSubtitle = "Now loading...", 
+    ConfigurationSaving = { Enabled = true, FolderName = "AntWarConfigs", FileName = "Main" }, 
+ 
+-- 
+    KeySystem = false 
+})
+
+local MainTab = Window:CreateTab("Combat", "sword")
+local FarmTab = Window:CreateTab("Farm", "wheat")
+local MovementTab = Window:CreateTab("Movement", "wind") 
+local VisualTab = Window:CreateTab("Visuals", "eye") 
+local MiscTab = Window:CreateTab("Misc", "more-horizontal") 
+
+-- Main Tab
+MainTab:CreateLabel("01-Maybe...")
+MainTab:CreateLabel("02-This version is not obfuscated, so you can copy this version")
+MainTab:CreateSection("Bite")
+MainTab:CreateToggle({ Name = "Bite Aura", CurrentValue = true, Flag = "AuraToggle", Callback = function(Value) _G.AuraEnabled = Value end })
+MainTab:CreateInput({ Name = "Bite Range", PlaceholderText = _G.BiteRange , Callback = function(Text) _G.BiteRange = tonumber(Text) or 25 end })
+MainTab:CreateInput({ Name 
+-- 
+ = "Bite Speed (Interval)", PlaceholderText = _G.BiteInterval , Callback = function(Text) _G.BiteInterval = tonumber(Text) or 0 end })
+
+MainTab:CreateSection("Acid")
+MainTab:CreateToggle({ Name = "Acid Silent Aim", CurrentValue = false, Flag = "AcidAuraToggle", Callback = function(Value) _G.AcidAuraEnabled = Value end })
+MainTab:CreateToggle({ Name = "Team Check", CurrentValue = true, Flag = "AcidTeamToggle", Callback = function(Value) _G.AcidTeamCheck = Value end })
+MainTab:CreateToggle({ Name = "Wall Check", CurrentValue = true, Flag = "AcidWallToggle", Callback = function(Value) _G.AcidWallCheck = Value end })
+MainTab:CreateToggle({ Name = "Disable Acid Animation", CurrentValue = false, Flag = "AcidAnimToggle", Callback = function(Value) _G.AcidDisableAnim = Value end })
+MainTab:CreateSlider({ Name = "Acid Range", Range = {10, 500}, 
+-- 
+ Increment = 10, Suffix = " Studs", CurrentValue = 100, Flag = "AcidRangeSlider", Callback = function(Value) _G.AcidRange = Value end })
+
+MainTab:CreateSection("Dig")
+MainTab:CreateToggle({ Name = "Auto Dig", CurrentValue = false, Flag = "DigToggle", Callback = function(Value) _G.DigAuraEnabled = Value end })
+-- Farm Tab
+FarmTab:CreateLabel("NOTE: Save Your Loot Dropoff Before Turning Auto Collect On!")
+FarmTab:CreateButton({ Name = "Save Current Position As Your Lootdropoff", Callback = function() local char = LP.Character if char and char:FindFirstChild("HumanoidRootPart") then _G.HomePos = char.HumanoidRootPart.CFrame Rayfield:Notify({Title = "Success", Content = "Home Position Saved!", Duration = 3}) end end }) 
+FarmTab:CreateToggle({ Name = "Auto Collect Larvae", CurrentValue = false, Flag = "AutoFarmFlag", Callback 
+-- 
+ = function(Value) _G.AutoFarm = Value if Value then task.spawn(function() while _G.AutoFarm do pcall(runFarmCycle) task.wait(FARM_WAIT_TIME) end end) end end })
+
+MainTab:CreateSection("Sting")
+
+MainTab:CreateToggle({
+    Name = "Sting Hitbox Expander",
+    CurrentValue = false,
+    Flag = "StingToggle",
+    Callback = function(Value)
+        _G.StingHitboxEnabled = Value
+        if Value and LP.Character then
+            ApplyStingHitbox(LP.Character)
+        end
+    end,
+})
+
+MainTab:CreateInput({
+    Name = "Hitbox Size",
+   
+-- 
+  PlaceholderText = _G.StingHitboxSize,
+    RemoveTextAfterFocusLost = false,
+    Callback = function(Text)
+        local num = tonumber(Text)
+        if num then
+            _G.StingHitboxSize = num
+            
+            if LP.Character then ApplyStingHitbox(LP.Character) end
+            
+          
+-- 
+            Rayfield:Notify({
+                Title = "Updated",
+                Content = "Hitbox size set to: " .. tostring(num),
+                Duration = 3
+            })
+        end
+    end,
+})
+
+-- Movement Tab
+MovementTab:CreateSection("WalkSpeed Bypass")
+MovementTab:CreateToggle({ Name = "Enable Speed Bypass", CurrentValue = false, Flag = 
+-- 
+ "BypassToggle", Callback = function(Value) _G.SpeedBypassEnabled = Value end })
+MovementTab:CreateSlider({ Name = "Walk Speed Amount", Range = {16, 40}, Increment = 1, Suffix = " Speed", CurrentValue = 16, Flag = "SpeedSlider", Callback = function(Value) _G.TargetWalkSpeed = Value end }) 
+-- Visual Tab
+VisualTab:CreateSection("ESP Settings")
+VisualTab:CreateToggle({ Name = "Enable Enemy ESP", CurrentValue = true, Flag = "ESPToggle", Callback = function(Value) _G.ESPEnabled = Value end })
+VisualTab:CreateButton({ Name = "Refresh ESP", Callback = function() CleanESP() end })
+VisualTab:CreateSection("HUD Settings")
+VisualTab:CreateToggle({ Name = "Show Enemy Status HUD", CurrentValue = true, Flag = "HUDToggle", Callback = function(Value) _G.ShowHUD = Value end })
+-- Ant Color Settings
+VisualTab:CreateSection("Self Colors")
+VisualTab:CreateDropdown({
+   Name 
+-- 
+ = "Select Color",
+   Options = RobloxColors,
+   CurrentOption = {CurrentSelectedColor},
+   MultipleOptions = false,
+   Flag = "ColorDropdown", 
+   Callback = function(Option)
+       CurrentSelectedColor = type(Option) == "table" and Option[1] or Option
+   end,
+})
+
+VisualTab:CreateButton({
+   Name = "Apply Selected Color",
+   Callback = function()
+       ExecuteColorChange()
+       Rayfield:Notify({ Title = "Success!", Content = "Color updated to " .. CurrentSelectedColor, Duration = 3 }) 
+   end,
+})
+
+-- Ant Body Material Settings
+VisualTab:CreateSection("Self Materials")
+VisualTab:CreateDropdown({
+   Name 
+-- 
+ = "Select Material",
+   Options = RobloxMaterials,
+   CurrentOption = {CurrentSelectedMaterial},
+   MultipleOptions = false,
+   Flag = "MaterialDropdown",
+   Callback = function(Option)
+       CurrentSelectedMaterial = type(Option) == "table" and Option[1] or Option
+   end,
+})
+
+VisualTab:CreateButton({
+   Name = "Apply Selected Materials",
+   Callback = function()
+       ApplyMaterialToParts(CurrentSelectedMaterial)
+       Rayfield:Notify({ Title = "Success!", Content = "Material updated to " .. CurrentSelectedMaterial, Duration = 3 })
+   end,
+})
+
+-- Monitor Settings (Updated Tab)
+VisualTab:CreateSection("Queen & Team Monitor")
+VisualTab:CreateToggle({
+    Name = "Enable Monitor (Upgrade&Fixed)",
+    CurrentValue = false,
+    Flag = "MonitorToggle",
+    Callback = function(Value) 
+        _G.MonitorEnabled = Value 
+        if Value then UpdateQueenCache() end
+    end
+})
+
+-- Misc Tab
+MiscTab:CreateSection("Teleports")
+MiscTab:CreateLabel("Teleports - Teleport You To Selected Player")
+local TeamDrop = MiscTab:CreateDropdown({
+    Name = "Select Ally",
+    Options = getPlayersByTeam(true),
+    CurrentOption = {""},
+    MultipleOptions = false,
+    Callback = function(Option) SelectedPlayerName = Option[1] end,
+})
+
+MiscTab:CreateButton({
+    Name = "Teleport to Ally",
+    Callback = executeSafeTween,
+})
+
+local EnemyDrop = MiscTab:CreateDropdown({
+    Name = "Select Enemy",
+    
+-- 
+ Options = getPlayersByTeam(false),
+    CurrentOption = {""},
+    MultipleOptions = false,
+    Callback = function(Option) SelectedPlayerName = Option[1] end,
+})
+
+MiscTab:CreateButton({
+    Name = "Teleport to Enemy",
+    Callback = executeSafeTween,
+})
+
+MiscTab:CreateSlider({
+   Name = "Flight Height",
+   Range = {20, 100},
+   Increment = 10,
+   Suffix = " Studs",
+   CurrentValue = 35,
+   Callback = function(Value) FLY_HEIGHT = Value end,
+})
+
+MiscTab:CreateButton({
+    Name = "Refresh Player Lists",
+    Callback = function()
+        TeamDrop:Refresh(getPlayersByTeam(true))
+   
+-- 
+        EnemyDrop:Refresh(getPlayersByTeam(false))
+        Rayfield:Notify({Title = "Updated!", Content = "Player lists refreshed!", Duration = 2})
+    end,
+})
+
+MiscTab:CreateSection("Queen Protection")
+MiscTab:CreateLabel("01-Make sure your animation bite to make this fully work!")
+MiscTab:CreateToggle({
+    Name = "Queen Guard",
+    CurrentValue = false,
+    Flag = "QueenGuardToggle",
+    Callback = function(Value) 
+        _G.QueenProtectEnabled = Value 
+        if Value then _G.CurrentQueen = GetMyTeamQueen() end
+    end
+})
+
+MiscTab:CreateSlider({
+    Name = "Patrol Radius (Around Queen)",
+    Range = {10, 150},
+-- 
+    Increment = 5,
+    Suffix = " Studs",
+    CurrentValue = 50,
+    Callback = function(Value) _G.PatrolRadius = Value end
+})
+
+MiscTab:CreateSlider({
+    Name = "Detection Range (Enemies)",
+    Range = {50, 300},
+    Increment = 10,
+    Suffix = " Studs",
+    CurrentValue = 100,
+    Callback = function(Value) _G.GuardDetectionRange = Value end
+})
